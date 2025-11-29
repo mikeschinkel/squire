@@ -1,0 +1,23 @@
+package squirepkg
+
+import (
+	"github.com/mikeschinkel/go-dt/appinfo"
+	"github.com/mikeschinkel/squire/squirepkg/common"
+)
+
+var appInfo = appinfo.New(appinfo.Args{
+	Name:        common.AppName,
+	Description: common.AppDescr,
+	Version:     common.Version,
+	AppSlug:     common.AppSlug,
+	ConfigSlug:  common.ConfigSlug,
+	ConfigFile:  common.ConfigFile,
+	InfoURL:     common.InfoURL,
+	ExeName:     common.ExeName,
+	LogFile:     common.LogFile,
+	ExtraInfo:   common.ExtraInfo,
+})
+
+func AppInfo() appinfo.AppInfo {
+	return appInfo
+}

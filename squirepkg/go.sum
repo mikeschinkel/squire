@@ -1,0 +1,10 @@
+github.com/mikeschinkel/go-cliutil v0.2.0 h1:rcSSSNeVplQQ/Fz2Tebw2uylwRgbDYysMY7y/RHnTns=
+github.com/mikeschinkel/go-cliutil v0.2.0/go.mod h1:S7FUUlXiaBWCTePqcrIQ4GcGTfLP5oBYO+T9Vi6PuUY=
+github.com/mikeschinkel/go-dt v0.2.5 h1:7iVpcxvxezN3ZPUwZ0vE2gW/EcXpUJokXmBjeoKj6jw=
+github.com/mikeschinkel/go-dt v0.2.5/go.mod h1:KJYRXePwYdBr57WhtRgDagOb7Ih/ORxE/kG4Mg6c8iE=
+github.com/mikeschinkel/go-dt/appinfo v0.2.1 h1:5BB8HQtGFyZ0qCG2DoBSeDBc9CblEJefUoR/4WxZXiw=
+github.com/mikeschinkel/go-dt/appinfo v0.2.1/go.mod h1:OW7bt0cwIdM8brbREnLByJJlODESIaHsEY+pvXxDEiQ=
+github.com/mikeschinkel/go-dt/dtx v0.2.1 h1:OsFs0kHuEZuSJwGyTI+LDZVABf5pAvcPXDuEI08j5PY=
+github.com/mikeschinkel/go-dt/dtx v0.2.1/go.mod h1:mFuyP/9gMzCKaLXhFWOXHngR2ou2jun7yE67NZRBhW8=
+github.com/mikeschinkel/go-logutil v0.1.1 h1:cZYRFfgdgS7HFzvHErXmrYy5cRyDscaq/nAuxupJXLY=
+github.com/mikeschinkel/go-logutil v0.1.1/go.mod h1:FTov/Lq+y1Eu817aEL0VmzL7ZlPUqYnqcmxPVMlrvmE=
