@@ -15,7 +15,7 @@ Squire is a **single CLI** that:
 - Envisions potentially supporting multiple languages, but starts with Go.
 - Orchestrates **Go workspaces**, `go.work`, and `replace` usage in a multi-repo, multi-module world.
 - Encodes and enforces a _**ClearPath**_ coding style via a dedicated linter.
-- Manages a new category of **“non-dependency dependencies”** like `go-doterr`, where a single Go file is embedded into many packages instead of pulled as a normal module dependency. :contentReference[oaicite:0]{index=0}  
+- Manages a new category of **“non-dependency dependencies”** like [`go-doterr`](https://github.com/mikeschinkel/go-doterr/blob/main/README.md), where a single Go file is embedded into many packages instead of pulled as a normal module dependency. See [more details](https://github.com/mikeschinkel/go-doterr/blob/3ed692ed7bf5b3f3af0c1db5305cfd2012780e10/CLI_PRD.md)
 - Provides an opinionated but configurable layer around:
   - Testing (`squire go test`)
   - Linting (`squire go lint`)
@@ -80,7 +80,7 @@ Requirements:
 
 ### 2.3. Non-dependency dependencies (`go-doterr`)
 
-`go-doterr` is the prototype of a category you want to promote: a **single-file embeddable utility** that’s copied into a project (or package) instead of imported as a normal dependency. :contentReference[oaicite:1]{index=1}  
+`go-doterr` is the prototype of a category you want to promote: a **single-file embeddable utility** that’s copied into a project (or package) instead of imported as a normal dependency. 
 
 Key properties:
 
@@ -96,7 +96,7 @@ Key properties:
   - Avoid drift.
   - Manage template versions.
 
-You previously designed a dedicated **doterr CLI** with template, config, `apply`, `check`, and TUI features. :contentReference[oaicite:2]{index=2}  
+For a design that informs this design, See [here](https://github.com/mikeschinkel/go-doterr/blob/3ed692ed7bf5b3f3af0c1db5305cfd2012780e10/CLI_PRD.md)
 
 Squire’s design incorporates that:
 
@@ -106,7 +106,7 @@ Squire’s design incorporates that:
     - `copy` (embed file),
     - `dot` (dot-import),
     - or `ignore`.
-  - Provide `apply`, `check`, and `init` flows with TUI for interactive selection. :contentReference[oaicite:3]{index=3}  
+  - Provide `apply`, `check`, and `init` flows with TUI for interactive selection.
 - The **doterr use-case** is the canonical example of Squire’s “non-dependency dependency” support, but the pattern should be general enough to apply to other single-file tools in the future.
 
 ---
@@ -133,8 +133,8 @@ Some implications:
   - `.squire` config should not become a second, conflicting “watch” for the same information.
 
 - For **doterr** and similar embed tools:
-  - `doterr.json` (or the Squire-equivalent) is the canonical source for which packages use `copy` vs `dot` vs `ignore`. :contentReference[oaicite:4]{index=4}  
-  - Generated files (`doterr.go`) and `go:generate` directives follow from that.
+  - Use `.squire/squire.json` instead of `doterr.json` as the canonical source for which packages use `copy` vs `dot` vs `ignore`.
+  - Generated files and `go:generate` directives follow from that.
 
 - For **workspaces**:
   - User-level config (e.g. `~/.config/squire/config.json`) is the canonical source of:
@@ -198,7 +198,7 @@ Some parts of Squire are **inherently interactive** and should be implemented as
    - Equivalent to the doterr CLI TUI described in the PRD:
      - List packages.
      - Toggle mode: `dot` → `copy` → `ignore`.
-     - Manage defaults and overrides. :contentReference[oaicite:5]{index=5}  
+     - Manage defaults and overrides. 
 
 3. **GoReleaser scaffolding**
    - When generating/updating release workflows:
