@@ -248,7 +248,7 @@ end:
 
 ### Package-Level Singleton Access
 ```go
-// common/logger.go
+// squire/logger.go
 logger := common.EnsureLogger()  // Panics if SetLogger() not called
 ```
 

@@ -10,7 +10,7 @@ import (
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-logutil"
-	"github.com/mikeschinkel/squire/squirepkg/common"
+	"github.com/mikeschinkel/squire/squirepkg/squire"
 
 	_ "github.com/mikeschinkel/squire/squirepkg/squirecmds"
 )
@@ -31,7 +31,7 @@ import (
 func Run(ctx Context, args *RunArgs) (err error) {
 	var runner *cliutil.CmdRunner
 	var cmd cliutil.Command
-	//var opts *common.Options
+	//var opts *squire.Options
 	//
 	//rawOpts := args.Options
 
@@ -86,7 +86,7 @@ func Initialize(args *RunArgs) (err error) {
 
 	// Setting the logger sets the package level logger variable so it is accessible
 	// throughout the package.
-	common.SetLogger(args.Logger)
+	squire.SetLogger(args.Logger)
 
 	if args.Logger == nil {
 		err = errors.New("squirepkg.Initialize: Logger not set")
@@ -135,6 +135,6 @@ func initializeWriters(w CLIWriter) {
 func initializeLoggers(logger *slog.Logger) {
 	//TODO These should be registered by the package, not hard-coded here.
 	// OR if possible resolved via reflection
-	cliutil.SetLogger(logger)
+	// cliutil no longer uses a logger, only a Writer
 	cfgstore.SetLogger(logger)
 }

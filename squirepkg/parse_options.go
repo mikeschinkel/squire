@@ -2,22 +2,22 @@ package squirepkg
 
 import (
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/mikeschinkel/squire/squirepkg/common"
+	"github.com/mikeschinkel/squire/squirepkg/squire"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
 )
 
 // ParseOptions converts raw options from clicfg.Options into
-// validated common.Options with embedded cliutil.GlobalOptions.
+// validated squire.Options with embedded cliutil.GlobalOptions.
 // If cliutilOpts is provided, it will be used directly instead of creating a new GlobalOptions.
-func ParseOptions(cfgOpts *squirecfg.Options, cliutilOpts *cliutil.CLIOptions) (opts *common.Options, err error) {
-	var cliOpts *cliutil.CLIOptions
+func ParseOptions(cfgOpts *squirecfg.Options, cliutilOpts *cliutil.GlobalOptions) (opts *squire.Options, err error) {
+	var globalOpts *cliutil.GlobalOptions
 
 	// If cliutilOpts provided, use it directly (preserves all flags like --force, --dry-run)
 	if cliutilOpts != nil {
-		cliOpts = cliutilOpts
+		globalOpts = cliutilOpts
 	} else {
 		// Otherwise create new GlobalOptions from config values
-		cliOpts, err = cliutil.NewCLIOptions(cliutil.CLIOptionsArgs{
+		globalOpts, err = cliutil.NewGlobalOptions(cliutil.GlobalOptionsArgs{
 			Quiet:     &cfgOpts.Quiet,
 			Verbosity: &cfgOpts.Verbosity,
 		})
@@ -26,8 +26,8 @@ func ParseOptions(cfgOpts *squirecfg.Options, cliutilOpts *cliutil.CLIOptions) (
 		}
 	}
 
-	opts = common.NewOptions(common.OptionsArgs{
-		CLIOptions: cliOpts,
+	opts = squire.NewOptions(squire.OptionsArgs{
+		GlobalOptions: globalOpts,
 	})
 
 end:

@@ -9,7 +9,7 @@ import (
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/mikeschinkel/squire/squirepkg/common"
+	"github.com/mikeschinkel/squire/squirepkg/squire"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
 )
 
@@ -27,35 +27,35 @@ import (
 func RunCLI() {
 	var err error
 	//var squirecfg *squirecfg.RootConfigV1
-	var config *common.Config
+	var config *squire.Config
 	var squireCfg *squirecfg.RootConfigV1
-	var cliOptions *cliutil.CLIOptions
+	var globalOptions *cliutil.GlobalOptions
 	var cfgOptions *squirecfg.Options
-	var options *common.Options
+	var options *squire.Options
 	var args []string
 	var appInfo appinfo.AppInfo
 	var wr cliutil.WriterLogger
 	//
-	cliOptions, args, err = cliutil.ParseCLIOptions(os.Args)
+	globalOptions, args, err = cliutil.ParseGlobalOptions(os.Args)
 	if err != nil {
 		stdErrf("Invalid option(s): %v\n", strings.Replace(err.Error(), "\n", "; ", -1))
 		os.Exit(cliutil.ExitOptionsParseError)
 	}
-	if cliOptions == nil {
-		// This should never happen as ParseCLIOptions returns an error if it fails
-		panic("cliutil.ParseCLIOptions returned nil without error")
+	if globalOptions == nil {
+		// This should never happen as ParseGlobalOptions returns an error if it fails
+		panic("cliutil.ParseGlobalOptions returned nil without error")
 	}
 
 	// Convert cliutil.GlobalOptions to squirecfg.Options (raw)
-	quiet := cliOptions.Quiet()
-	verbosity := int(cliOptions.Verbosity())
+	quiet := globalOptions.Quiet()
+	verbosity := int(globalOptions.Verbosity())
 	cfgOptions = squirecfg.NewOptions(squirecfg.OptionsArgs{
 		Quiet:     &quiet,
 		Verbosity: &verbosity,
 	})
 
-	// Parse raw options to typed options (pass cliOptions to preserve all flags)
-	options, err = ParseOptions(cfgOptions, cliOptions)
+	// Parse raw options to typed options (pass globalOptions to preserve all flags)
+	options, err = ParseOptions(cfgOptions, globalOptions)
 	if err != nil {
 		stdErrf("Failed to parse options: %v\n", err)
 		os.Exit(cliutil.ExitOptionsParseError)
@@ -66,7 +66,7 @@ func RunCLI() {
 		Quiet:      quiet,
 		Verbosity:  options.Verbosity(),
 		ConfigSlug: appInfo.ConfigSlug(),
-		LogFile:    common.LogFile,
+		LogFile:    squire.LogFile,
 	})
 	if err != nil {
 		stdErrf("Failed to run: %v\n", err)
@@ -82,7 +82,7 @@ func RunCLI() {
 		os.Exit(cliutil.ExitConfigLoadError)
 	}
 
-	config, err = ParseConfig(squireCfg, common.ConfigArgs{
+	config, err = ParseConfig(squireCfg, squire.ConfigArgs{
 		Options: options,
 		AppInfo: appInfo,
 		Writer:  wr.Writer,
@@ -109,7 +109,7 @@ func RunCLI() {
 	})
 
 	if err != nil {
-		wr.Writer.Errorf("Error running %s: %v", common.AppName, err)
+		wr.Writer.Errorf("Error running %s: %v", squire.AppName, err)
 		wr.Logger.Error("Unknown runtime error", "error", err)
 		os.Exit(cliutil.ExitUnknownRuntimeError)
 	}

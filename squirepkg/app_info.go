@@ -2,20 +2,20 @@ package squirepkg
 
 import (
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/mikeschinkel/squire/squirepkg/common"
+	"github.com/mikeschinkel/squire/squirepkg/squire"
 )
 
 var appInfo = appinfo.New(appinfo.Args{
-	Name:        common.AppName,
-	Description: common.AppDescr,
-	Version:     common.Version,
-	AppSlug:     common.AppSlug,
-	ConfigSlug:  common.ConfigSlug,
-	ConfigFile:  common.ConfigFile,
-	InfoURL:     common.InfoURL,
-	ExeName:     common.ExeName,
-	LogFile:     common.LogFile,
-	ExtraInfo:   common.ExtraInfo,
+	Name:        squire.AppName,
+	Description: squire.AppDescr,
+	Version:     squire.Version,
+	AppSlug:     squire.AppSlug,
+	ConfigSlug:  squire.ConfigSlug,
+	ConfigFile:  squire.ConfigFile,
+	InfoURL:     squire.InfoURL,
+	ExeName:     squire.ExeName,
+	LogFile:     squire.LogFile,
+	ExtraInfo:   squire.ExtraInfo,
 })
 
 func AppInfo() appinfo.AppInfo {

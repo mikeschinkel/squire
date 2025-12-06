@@ -6,7 +6,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/mikeschinkel/squire/squirepkg/common"
+	"github.com/mikeschinkel/squire/squirepkg/squire"
 )
 
 const (
@@ -77,13 +77,13 @@ func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 	configStores := cfgstore.NewConfigStores(cfgstore.ConfigStoresArgs{
 		DirTypes: dirTypes,
 		ConfigStoreArgs: cfgstore.ConfigStoreArgs{
-			ConfigSlug:  common.ConfigSlug,
-			RelFilepath: common.ConfigFile,
+			ConfigSlug:  squire.ConfigSlug,
+			RelFilepath: squire.ConfigFile,
 		},
 	})
 
 	// Get externally set options such as via the switches on the command line
-	return cfgstore.LoadRootConfig[RootConfigV1, *RootConfigV1](configStores, cfgstore.RootConfigArgs{
+	return cfgstore.LoadConfigStores[RootConfigV1, *RootConfigV1](configStores, cfgstore.RootConfigArgs{
 		DirTypes: dirTypes,
 		Options:  args.Options,
 	})
