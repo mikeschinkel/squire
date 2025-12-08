@@ -1,6 +1,7 @@
 package squirecmds
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,8 +16,9 @@ var _ cliutil.CommandHandler = (*ScanCmd)(nil)
 // ScanCmd discovers Go modules under specified roots
 type ScanCmd struct {
 	*cliutil.CmdBase
-	dirArg string
-	roots  []dt.DirPath
+	dirArg        string
+	continueOnErr bool
+	roots         []dt.DirPath
 }
 
 func init() {
@@ -32,6 +34,14 @@ func init() {
 		Name:        "scan",
 		Usage:       "scan [<dir>]",
 		Description: "Discover Go modules in unmanaged repos (defaults to current directory)",
+		FlagDefs: []cliutil.FlagDef{
+			{
+				Name:     "continue",
+				Usage:    "On error, accumulate and continue; do not fail fast",
+				Required: false,
+				Bool:     &cmd.continueOnErr,
+			},
+		},
 		ArgDefs: []*cliutil.ArgDef{
 			{
 				Name:     "dir",
@@ -52,10 +62,8 @@ func init() {
 // Handle executes the scan command
 func (c *ScanCmd) Handle() (err error) {
 	var config *squire.Config
-	var allGoMods []dt.Filepath
 	var root dt.DirPath
-	var goMods []dt.Filepath
-	var goModPath dt.Filepath
+	var errs []error
 
 	config = c.Config.(*squire.Config)
 
@@ -67,16 +75,14 @@ func (c *ScanCmd) Handle() (err error) {
 
 	// Scan each root directory
 	for _, root = range c.roots {
-		goMods, err = c.scanDirectory(root, config)
+		err = c.scanDirectory(root, config)
 		if err != nil {
+			if c.continueOnErr {
+				errs = append(errs, err)
+				continue
+			}
 			goto end
 		}
-		allGoMods = append(allGoMods, goMods...)
-	}
-
-	// Output all discovered go.mod paths, one per line
-	for _, goModPath = range allGoMods {
-		config.Writer.Printf("%s\n", goModPath)
 	}
 
 end:
@@ -107,45 +113,64 @@ end:
 	return roots, err
 }
 
+var ErrAccessingPath = errors.New("error accessing path")
+var ErrNoRepoRoot = errors.New("no repository root")
+
 // scanDirectory recursively scans a directory for go.mod files
-func (c *ScanCmd) scanDirectory(root dt.DirPath, config *squire.Config) (goMods []dt.Filepath, err error) {
+func (c *ScanCmd) scanDirectory(root dt.DirPath, config *squire.Config) (err error) {
 	var repoCache map[string]bool
-	var walkFunc func(path string, info os.FileInfo, walkErr error) error
+	var de dt.DirEntry
+	var goModPath dt.Filepath
+	var moduleDir dt.DirPath
+	var repoRoot dt.DirPath
+	var isManaged bool
+	var cached bool
+	var repoRootStr string
+
+	var errs []error
 
 	repoCache = make(map[string]bool)
 
-	walkFunc = func(path string, info os.FileInfo, walkErr error) error {
-		var entryPath dt.EntryPath
-		var goModPath dt.Filepath
-		var moduleDir dt.DirPath
-		var repoRoot dt.DirPath
-		var isManaged bool
-		var cached bool
-		var repoRootStr string
-
-		if walkErr != nil {
-			config.Logger.Warn("error accessing path", "path", path, "error", walkErr)
+	for de, err = range root.Walk() {
+		if err != nil {
+			config.Logger.Warn(ErrAccessingPath.Error(), "path", de.Rel, "error", err)
+			err = NewErr(ErrAccessingPath, "path", de.Rel, err)
+			if c.continueOnErr {
+				errs = append(errs, err)
+				err = nil
+				continue
+			}
 			goto end
 		}
 
 		// Skip if not a go.mod file
-		if info.IsDir() || info.Name() != "go.mod" {
-			goto end
+		if de.IsDir() || de.Entry.Name() != "go.mod" {
+			continue
 		}
 
-		// Convert to dt types
-		entryPath = dt.EntryPath(path)
-		goModPath = dt.Filepath(entryPath)
+		// Build absolute filepath from root and relative path
+		goModPath = dt.FilepathJoin(root, de.Rel)
 
 		// Get module directory
 		moduleDir = goModPath.Dir()
 
 		// Find repo root
 		repoRoot, err = findRepoRoot(moduleDir)
-		if err != nil {
-			config.Logger.Warn("could not find repo root", "path", path, "error", err)
-			err = nil // Continue scanning
+		switch {
+		case errors.Is(err, dt.ErrDoesNotExist):
+			err = nil
+			continue
+		case err != nil:
+			config.Logger.Warn(ErrNoRepoRoot.Error(), "path", goModPath, "error", err)
+			err = NewErr(ErrNoRepoRoot, "path", goModPath, err)
+			if c.continueOnErr {
+				errs = append(errs, err)
+				err = nil
+				continue
+			}
 			goto end
+		default:
+			// Carry on
 		}
 
 		// Check cache first
@@ -157,38 +182,34 @@ func (c *ScanCmd) scanDirectory(root dt.DirPath, config *squire.Config) (goMods 
 		}
 
 		// Only include if repo is not managed
-		if !isManaged {
-			goMods = append(goMods, goModPath)
+		if isManaged {
+			continue
 		}
-
-	end:
-		return err
+		c.Writer.Printf("%s\n", goModPath)
 	}
-
-	err = filepath.Walk(string(root), walkFunc)
-	if err != nil {
-		err = NewErr(ErrCommand, ErrScan, ErrFileOperation, "root", root, err)
-		goto end
-	}
-
+	err = CombineErrs(errs)
 end:
-	return goMods, err
+	return err
 }
 
 // findRepoRoot walks up the directory tree to find the nearest .git directory
 func findRepoRoot(startDir dt.DirPath) (repoRoot dt.DirPath, err error) {
 	var dir dt.DirPath
-	var gitPath dt.DirPath
+	var gitDir dt.DirPath
 	var exists bool
 	var parent dt.DirPath
 
 	dir = startDir
 
 	for {
-		gitPath = dt.DirPathJoin(dir, ".git")
-		exists, err = gitPath.Exists()
+		gitDir = dt.DirPathJoin(dir, ".git")
+		exists, err = gitDir.Exists()
 		if err != nil {
-			err = NewErr(ErrRepoRoot, "path", gitPath, err)
+			if !os.IsNotExist(err) {
+				err = WithErr(err, dt.ErrFileSystem)
+				goto end
+			}
+			err = NewErr(dt.ErrDirDoesNotExist, dt.ErrDoesNotExist, "path", gitDir, err)
 			goto end
 		}
 
@@ -200,13 +221,16 @@ func findRepoRoot(startDir dt.DirPath) (repoRoot dt.DirPath, err error) {
 		parent = dir.Dir()
 		if parent == dir {
 			// Reached filesystem root without finding .git
-			err = NewErr(ErrRepoRoot, dt.ErrFileDoesNotExist, "start_dir", startDir)
+			err = NewErr(dt.ErrFileDoesNotExist, dt.ErrDoesNotExist, "start_dir", startDir)
 			goto end
 		}
 		dir = parent
 	}
 
 end:
+	if err != nil {
+		err = WithErr(err, ErrRepoRoot)
+	}
 	return repoRoot, err
 }
 

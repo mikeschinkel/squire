@@ -11,3 +11,5 @@ require (
 )
 
 require github.com/mikeschinkel/go-dt/dtx v0.2.1 // indirect
+
+replace github.com/mikeschinkel/go-dt => ../../go-pkgs/go-dt

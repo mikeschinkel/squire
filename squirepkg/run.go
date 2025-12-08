@@ -35,7 +35,7 @@ func Run(ctx Context, args *RunArgs) (err error) {
 	//
 	//rawOpts := args.Options
 
-	args.Logger.Info("%s starting\n", args.AppInfo.Name())
+	args.Logger.Info("starting", "name", args.AppInfo.Name())
 
 	err = Initialize(args)
 	if err != nil {

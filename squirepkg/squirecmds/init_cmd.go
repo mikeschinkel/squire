@@ -159,7 +159,9 @@ end:
 func (c *InitCmd) scanDirectory(config *squire.Config) (goModPaths []dt.Filepath, err error) {
 	var dirPath dt.DirPath
 	var arg string
-	var walkFunc func(path string, info os.FileInfo, walkErr error) error
+	var de dt.DirEntry
+	var walkErr error
+	var goModPath dt.Filepath
 
 	// Get directory argument or default to current directory
 	if c.dirArg == "" {
@@ -176,35 +178,22 @@ func (c *InitCmd) scanDirectory(config *squire.Config) (goModPaths []dt.Filepath
 	}
 
 	// Walk the directory tree looking for go.mod files
-	walkFunc = func(path string, info os.FileInfo, walkErr error) error {
-		var entryPath dt.EntryPath
-		var goModPath dt.Filepath
-
+	for de, walkErr = range dirPath.Walk() {
 		if walkErr != nil {
-			config.Logger.Warn("error accessing path", "path", path, "error", walkErr)
-			goto end
+			config.Logger.Warn("error accessing path", "path", de.Rel, "error", walkErr)
+			continue
 		}
 
 		// Skip if not a go.mod file
-		if info.IsDir() || info.Name() != "go.mod" {
-			goto end
+		if de.IsDir() || de.Entry.Name() != "go.mod" {
+			continue
 		}
 
-		// Convert to dt types
-		entryPath = dt.EntryPath(path)
-		goModPath = dt.Filepath(entryPath)
+		// Build absolute filepath from root and relative path
+		goModPath = dt.FilepathJoin(dirPath, de.Rel)
 
 		// Add all go.mod files (we'll filter by repo later)
 		goModPaths = append(goModPaths, goModPath)
-
-	end:
-		return err
-	}
-
-	err = filepath.Walk(string(dirPath), walkFunc)
-	if err != nil {
-		err = NewErr(ErrCommand, ErrInit, ErrFileOperation, "dir", dirPath, err)
-		goto end
 	}
 
 end:
