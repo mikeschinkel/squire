@@ -2,6 +2,45 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ CRITICAL INSTRUCTIONS - MUST READ FIRST
+
+**These are non-negotiable requirements. Read and follow these instructions at the start of every session before proceeding with any tasks.**
+
+### Coding Conventions (READ FIRST)
+Read these files to understand and follow coding conventions. Use pre-existing functionality from the packages below instead of reimplementing from scratch in a less maintainable form:
+
+- `~/.claude/CLAUDE-golang.md`
+- `~/.claude/CLAUDE-golang-error-handling.md`
+- `~/.claude/CLAUDE-golang-file-handling.md`
+- `~/.claude/CLAUDE-testing-best-practices.md`
+
+### Required Packages (USE THESE)
+You MUST use these packages whenever applicable instead of standard library or third-party alternatives:
+
+**For production code:**
+- `~/Projects/go-pkgs/go-doterr/README.md` - Error handling
+- `~/Projects/go-pkgs/go-dt/README.md` - Data types (paths, etc.)
+- `~/Projects/go-pkgs/go-dt/dtx/README.md` - Data type extensions
+- `~/Projects/go-pkgs/go-cfgstore/README.md` - Configuration management
+- `~/Projects/go-pkgs/go-cliutil/README.md` - CLI utilities and command handling
+- `~/Projects/go-pkgs/go-logutil/README.md` - Logging utilities
+
+**For writing tests:**
+- `~/Projects/go-pkgs/go-testutil/README.md` - Testing utilities
+- `~/Projects/go-pkgs/go-fsfix/README.md` - Filesystem fixtures for tests
+- `~/Projects/go-pkgs/go-jsontest/README.md` - JSON testing utilities
+- `~/Projects/go-pkgs/go-jsontest/pipefuncs/README.md` - JSON pipeline functions
+
+**For localsvr work (not directly CLI):**
+- `~/Projects/go-pkgs/go-sqlparams/README.md` - SQL parameter handling
+- `~/Projects/go-pkgs/go-pathvars/README.md` - Path variable extraction/routing
+- `~/Projects/go-pkgs/go-jsonxtractr/README.md` - JSON extraction utilities
+- `~/Projects/go-pkgs/go-rfc9457/README.md` - RFC 9457 problem details
+- `~/Projects/go-pkgs/go-pathvars/examples/basic_routing/README.md` - Basic routing examples
+- `~/Projects/go-pkgs/go-pathvars/examples/rest_api/README.md` - REST API examples
+
+---
+
 ## Project Purpose
 
 Squire is a "Swiss Army Knife" CLI for Go development that consolidates many one-off tools into a single, cohesive CLI. It automates tasks currently requiring Makefiles, shell scripts, or manual multi-step workflows. It is NOT a replacement for native `go` commands - it provides higher-level orchestration for multi-repo workflows, development automation, and workspace management.
