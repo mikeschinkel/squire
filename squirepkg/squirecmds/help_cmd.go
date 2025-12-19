@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/mikeschinkel/squire/squirepkg/squire"
 )
 
 var _ cliutil.CommandHandler = (*HelpCmd)(nil)
@@ -32,19 +31,18 @@ func init() {
 
 // Handle executes the help command
 func (c *HelpCmd) Handle() (err error) {
-	config := c.Config.(*squire.Config)
 	switch {
 	case len(c.Args) == 0:
 		fallthrough
 	case strings.ToLower(c.Args[0]) == "help":
 		err = cliutil.ShowMainHelp(cliutil.UsageArgs{
-			AppInfo: config.AppInfo,
-			Writer:  config.Writer,
+			AppInfo: c.AppInfo,
+			Writer:  c.Writer,
 		})
 	default:
-		err = cliutil.ShowCmdHelp(c.Args[0], cliutil.UsageArgs{
-			AppInfo: config.AppInfo,
-			Writer:  config.Writer,
+		err = cliutil.ShowCmdHelp(c.Args, cliutil.UsageArgs{
+			AppInfo: c.AppInfo,
+			Writer:  c.Writer,
 		})
 	}
 	return err

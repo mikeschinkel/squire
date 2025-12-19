@@ -9,6 +9,7 @@ import (
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt/appinfo"
+	"github.com/mikeschinkel/squire/squirepkg/retinue"
 	"github.com/mikeschinkel/squire/squirepkg/squire"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
 )
@@ -27,7 +28,7 @@ import (
 func RunCLI() {
 	var err error
 	//var squirecfg *squirecfg.RootConfigV1
-	var config *squire.Config
+	var config *retinue.Config
 	var squireCfg *squirecfg.RootConfigV1
 	var globalOptions *cliutil.GlobalOptions
 	var cfgOptions *squirecfg.Options
@@ -82,9 +83,8 @@ func RunCLI() {
 		os.Exit(cliutil.ExitConfigLoadError)
 	}
 
-	config, err = ParseConfig(squireCfg, squire.ConfigArgs{
+	config, err = ParseConfig(squireCfg, retinue.ConfigArgs{
 		Options: options,
-		AppInfo: appInfo,
 		Writer:  wr.Writer,
 		Logger:  wr.Logger,
 	})
@@ -96,7 +96,7 @@ func RunCLI() {
 	}
 
 	// TODO: Make 30 second timeout configurable
-	context.WithTimeout(context.Background(), 30*time.Second)
+	context.WithTimeout(context.Background(), 30*time.Minute)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	err = Run(ctx, &RunArgs{

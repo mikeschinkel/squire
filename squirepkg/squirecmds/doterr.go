@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Package doterr provides a tiny, stdlib-only way to attach structured metadata
+// Package squirecmds provides a tiny, stdlib-only way to attach structured metadata
 // and sentinels to errors while staying fully composable with the Go standard
 // library. The model is:
 //

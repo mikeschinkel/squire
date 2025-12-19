@@ -1,0 +1,205 @@
+
+//// InitializeRepoArgs contains arguments for initializing repositories
+//type InitializeRepoArgs struct {
+//	Config   *Config
+//	FilePath string
+//	DirPath  string
+//	AppInfo  appinfo.AppInfo
+//	Options  cfgstore.Options
+//	Writer   cliutil.Writer
+//	Logger   *slog.Logger
+//}
+//
+//
+//type ModReplace struct {
+//	ModulePath ModulePath
+//	ReplacedBy dt.PathSegments
+//}
+//
+//type RepoInitializer struct {
+//	DirPath   dt.DirPath
+//	Modules   []GoModule
+//	Externals []GoModule
+//}
+//
+//func NewRepoInitializer(dirPath dt.DirPath) *RepoInitializer {
+//	return &RepoInitializer{
+//		DirPath: dirPath,
+//		Modules: make([]GoModule, 0),
+//	}
+//}
+
+//// InitializeRepos initializes .squire/config.json files for repos
+//func InitializeRepos(args *InitializeRepoArgs) (result *InitReposResult, err error) {
+//	var goModPaths []dt.Filepath
+//	var repoModules map[dt.DirPath][]dt.DirPath
+//	var errs []error
+//	var repoRoot dt.DirPath
+//	var modules []dt.DirPath
+//	var initialized int
+//	var skipped int
+//
+//	result = &InitReposResult{}
+//
+//	// Group go.mod paths by repo root
+//	repoModules, errs = groupModulesByRepo(goModPaths)
+//	if len(errs) > 0 {
+//		reportErrors(errs, args.Writer)
+//		err = fmt.Errorf("encountered %d errors during grouping", len(errs))
+//		goto end
+//	}
+//
+//	// Process each repo
+//	for repoRoot, modules = range repoModules {
+//		err = initializeRepo(repoRoot, modules, args)
+//		if err != nil {
+//			if errors.Is(err, ErrAlreadyManaged) {
+//				args.Writer.Printf("Skipped %s (already managed)\n", repoRoot)
+//				skipped++
+//				err = nil
+//				continue
+//			}
+//			args.Writer.Errorf("Failed to initialize %s: %v\n", repoRoot, err)
+//			errs = append(errs, err)
+//			err = nil
+//			continue
+//		}
+//		args.Writer.Printf("Initialized %s\n", repoRoot)
+//		initialized++
+//	}
+//
+//	result.Initialized = initialized
+//	result.Skipped = skipped
+//	result.Errors = errs
+//
+//end:
+//	return result, err
+//}
+
+//// groupModulesByRepo groups go.mod paths by their repo root
+//func groupModulesByRepo(goModPaths []dt.Filepath) (repoModules map[dt.DirPath][]dt.DirPath, errs []error) {
+//	var goModPath dt.Filepath
+//	var moduleDir dt.DirPath
+//	var repoRoot dt.DirPath
+//	var err error
+//
+//	repoModules = make(map[dt.DirPath][]dt.DirPath)
+//
+//	for _, goModPath = range goModPaths {
+//		// Get the directory containing go.mod
+//		moduleDir = goModPath.Dir()
+//
+//		// Find the repo root
+//		repoRoot, err = FindRepoRoot(moduleDir)
+//		if err != nil {
+//			err = fmt.Errorf("finding repo root for %s: %w", goModPath, err)
+//			errs = append(errs, err)
+//			continue
+//		}
+//
+//		// Add to the repo's module list
+//		repoModules[repoRoot] = append(repoModules[repoRoot], moduleDir)
+//	}
+//
+//	return repoModules, errs
+//}
+
+//// initializeRepo creates .squire/config.json for a repo
+//func initializeRepo(repoRoot dt.DirPath, moduleDirs []dt.DirPath, args *InitializeRepoArgs) (err error) {
+//	var store cfgstore.ConfigStore
+//	var configPath dt.Filepath
+//	var exists bool
+//	var modules map[dt.DirPath]ModuleConfig
+//	var moduleDir dt.DirPath
+//	var kind ModuleKind
+//	var repoConfig *RepoConfig
+//	var requires []RepoRequirement
+//
+//	// Create a config store for this specific repo root
+//	store = ProjectConfigStore(repoRoot)
+//
+//	// Check if config already exists
+//	configPath, err = store.GetFilepath()
+//	if err != nil {
+//		err = fmt.Errorf("getting config path for %s: %w", repoRoot, err)
+//		goto end
+//	}
+//
+//	exists = store.Exists()
+//	if exists {
+//		err = ErrAlreadyManaged
+//		goto end
+//	}
+//
+//	// Build the modules map
+//	modules = make(map[dt.DirPath]ModuleConfig)
+//	for _, moduleDir = range moduleDirs {
+//
+//		// Infer kind from path
+//		kind = inferModuleKind(moduleDir)
+//
+//		modules[moduleDir] = ModuleConfig{
+//			Name:  string(moduleDir.Base()),
+//			Kinds: []ModuleKind{kind},
+//		}
+//	}
+//
+//	// Discover required repositories
+//	requires, err = DiscoverRequires(&DiscoverRequiresArgs{
+//		RepoRoot: repoRoot,
+//		Config:   args.Config,
+//		Logger:   args.Logger,
+//	})
+//	if err != nil {
+//		// Log warning but don't fail - requires field is optional
+//		args.Logger.Warn("could not discover requires", "error", err)
+//		err = nil
+//	}
+//
+//	// Create the repo config
+//	repoConfig = &RepoConfig{
+//		Modules:  modules,
+//		Requires: requires,
+//	}
+//
+//	// Save config using cfgstore (handles directory creation and JSON marshaling)
+//	err = store.SaveJSON(repoConfig)
+//	if err != nil {
+//		err = fmt.Errorf("saving config to %s: %w", configPath, err)
+//		goto end
+//	}
+//
+//end:
+//	return err
+//}
+
+//var (
+//	cmdRegex   = regexp.MustCompile("(?i)(^cmd$|^cmd/|/cmd$|/cmd/)")
+//	testsRegex = regexp.MustCompile("(?i)(^tests?$|^tests?/|/tests?$|/tests?/)")
+//)
+
+//// inferModuleKind infers the module role from its path
+//func inferModuleKind(moduleDir dt.DirPath) (kind ModuleKind) {
+//	// Normalize path for comparison
+//	normalized := filepath.ToSlash(string(moduleDir))
+//
+//	switch {
+//	case cmdRegex.MatchString(normalized):
+//		kind = ExeModuleKind
+//	case testsRegex.MatchString(normalized):
+//		kind = TestModuleKind
+//	default:
+//		kind = LibModuleKind
+//
+//	}
+//	return kind
+//}
+//
+//// reportErrors reports multiple errors to the writer
+//func reportErrors(errs []error, writer cliutil.Writer) {
+//	var e error
+//
+//	for _, e = range errs {
+//		writer.Errorf("%v\n", e)
+//	}
+//}

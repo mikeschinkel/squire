@@ -5,6 +5,7 @@ import (
 	jsonv2 "encoding/json/v2"
 
 	"github.com/mikeschinkel/go-cfgstore"
+	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/appinfo"
 	"github.com/mikeschinkel/squire/squirepkg/squire"
 )
@@ -12,6 +13,12 @@ import (
 const (
 	RootConfigV1Version = 1
 	RootConfigV1Schema  = "https://squire.github.io/schemas/v1/root-schema.json"
+
+	// ConfigSlug provides the directory under ~/.config/ where configuration will be stored
+	ConfigSlug dt.PathSegment = "squire"
+
+	// ConfigFile is the path for where the config file will be stored in the config directory
+	ConfigFile dt.RelFilepath = "config.json"
 )
 
 var _ Config = (*RootConfigV1)(nil)
@@ -32,8 +39,10 @@ func (c *RootConfigV1) RootConfig() {}
 
 // Base struct with non-polymorphic fields
 type rootConfigV1Base struct {
-	Schema  string `json:"$schema"`
-	Version int    `json:"version"`
+	Schema      string   `json:"$schema"`
+	Version     int      `json:"version"`
+	ScanDirs    []string `json:"scan_dirs,omitempty"`
+	ModuleSpecs []string `json:"module_specs,omitempty"`
 }
 
 //goland:noinspection GoUnusedExportedFunction
@@ -88,4 +97,25 @@ func LoadRootConfigV1(args LoadRootConfigV1Args) (_ *RootConfigV1, err error) {
 		Options:  args.Options,
 	})
 
+}
+
+type SaveRootConfigV1Args struct {
+	AppInfo appinfo.AppInfo
+}
+
+func SaveRootConfigV1(config *RootConfigV1, args SaveRootConfigV1Args) (err error) {
+	var store cfgstore.ConfigStore
+
+	store = cfgstore.NewConfigStore(cfgstore.CLIConfigDirType, cfgstore.ConfigStoreArgs{
+		ConfigSlug:  ConfigSlug,
+		RelFilepath: ConfigFile,
+	})
+
+	err = store.SaveJSON(config)
+	if err != nil {
+		goto end
+	}
+
+end:
+	return err
 }
