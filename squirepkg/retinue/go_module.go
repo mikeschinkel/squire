@@ -106,3 +106,30 @@ func (m *GoModule) chkSetGraph(funcName string) {
 		dtx.Panicf("ERROR: Must call GoModule.SetGraph() before calling GoModule.%s()", funcName)
 	}
 }
+
+// RequireDirs returns the module directories that this specific module depends on
+func (m *GoModule) RequireDirs() (requireDirs []ModuleDir) {
+	m.chkLoaded("RequireDirs")
+	m.chkSetGraph("RequireDirs")
+
+	requireDirs = make([]ModuleDir, 0, len(m.Require))
+	for _, require := range m.Require {
+		mp := ModulePath(require.Mod.Path)
+		moduleDirs, ok := m.Graph.ModuleDirByModulePath[mp]
+		if !ok {
+			// Not a local module, skip it
+			continue
+		}
+		switch len(moduleDirs) {
+		case 0:
+			continue
+		case 1:
+			requireDirs = append(requireDirs, moduleDirs.DirPath())
+		default:
+			// Multiple modules with same path - this shouldn't happen in practice
+			// but handle it by taking the first one
+			requireDirs = append(requireDirs, moduleDirs.DirPath())
+		}
+	}
+	return requireDirs
+}

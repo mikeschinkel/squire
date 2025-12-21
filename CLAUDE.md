@@ -595,7 +595,7 @@ Reference: https://github.com/ryancurrah/gomodguard
 
 ### License Management
 Future consideration: Tool to manage dependencies by OSS license
-- Allow only specific licenses (e.g., MIT but not GPL)
+- Allow only specific licenses (e.g., Apache-2.0 but not GPL)
 - Useful for organizations with legal/compliance requirements
 - Track licenses of all dependencies in workspace
 - Alert when new dependency uses prohibited license

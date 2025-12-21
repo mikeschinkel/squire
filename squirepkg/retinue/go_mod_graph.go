@@ -2,10 +2,7 @@ package retinue
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
-	"maps"
-	"slices"
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
@@ -28,51 +25,54 @@ func (m ModuleDirMap) DirPath() (dp dt.DirPath) {
 	return dp
 }
 
-type ModuleMapByModulePath map[ModulePath]*GoModule
+type ModuleMapByModulePath = *dtx.OrderedMap[ModulePath, *GoModule]
 
-func (mm ModuleMapByModulePath) Requires(g *GoModGraph) (requires []ModulePath) {
-	unique := make(map[ModulePath]struct{}, len(mm))
-	for _, module := range mm {
+// ModuleMapRequires returns the unique module paths required by modules in the map
+func ModuleMapRequires(mm ModuleMapByModulePath, g *GoModGraph) (requires []ModulePath) {
+	unique := make(map[ModulePath]struct{})
+
+	// Iterate using OrderedMap's Values() iterator
+	for module := range mm.Values() {
 		for _, r := range module.Require {
 			unique[ModulePath(r.Mod.Path)] = struct{}{}
 		}
 	}
-	requires = make([]ModulePath, len(unique))
-	n := 0
-	for _, mp := range slices.Collect(maps.Keys(unique)) {
+
+	requires = make([]ModulePath, 0, len(unique))
+	for mp := range unique {
 		_, ok := g.ModuleDirByModulePath[mp]
 		if !ok {
 			// No local repo found
 			continue
 		}
-		requires[n] = mp
-		n++
+		requires = append(requires, mp)
 	}
-	return requires[:n]
+	return requires
 }
 
 type RepoDir = dt.DirPath
 type ModuleDir = dt.DirPath
-type RepoDirsByModuleDir map[ModuleDir]RepoDir
+type ModulesMapByModulePathByRepoDir = map[RepoDir]ModuleMapByModulePath
+type RepoDirsByModuleDir = *dtx.OrderedMap[ModuleDir, RepoDir]
 type GoModGraph struct {
-	RepoDir                         dt.DirPath
-	GoModFiles                      []dt.Filepath
-	ModulesMapByModulePathByRepoDir map[RepoDir]ModuleMapByModulePath
-	ModulesByKey                    map[ModuleKey]*GoModule
-	ModulesByModuleDir              map[ModuleDir]*GoModule
-	ModulePathsByModuleDir          map[ModuleDir]ModulePath
-	ModuleDirByModulePath           map[ModulePath]ModuleDirMap
+	RepoDir    dt.DirPath
+	GoModFiles []dt.Filepath
+
+	// Use OrderedMap for deterministic iteration
+	ModulesMapByModulePathByRepoDir ModulesMapByModulePathByRepoDir
 	RepoDirsByModuleDir             RepoDirsByModuleDir
-	ReposByRepoDir                  map[RepoDir]*Repo
-	ReposByModuleDir                map[ModuleDir]*Repo
-	moduleDirVisited                map[dt.DirPath]struct{}
+
+	// Regular maps for lookups only
+	ModulesByModuleDir    map[ModuleDir]*GoModule
+	ModuleDirByModulePath map[ModulePath]ModuleDirMap
+	ReposByRepoDir        map[RepoDir]*Repo
+	ReposByModuleDir      map[ModuleDir]*Repo
+	moduleDirVisited      map[dt.DirPath]struct{}
 
 	Writer cliutil.Writer
 	Logger *slog.Logger
 
-	//ReposByModulePath    map[ModulePath]RepoDirsByModuleDir
-	//Requires             []ModulePath
-	//RequiredBy            map[ModulePath]ModulePathMap
+	// DELETED: ModulesByKey, ModulePathsByModuleDir (only used for duplicate detection)
 }
 type GoModuleGraphArgs struct {
 	Writer cliutil.Writer
@@ -83,18 +83,14 @@ func NewGoModuleGraph(repoDir dt.DirPath, files []dt.Filepath, args GoModuleGrap
 	return &GoModGraph{
 		RepoDir:                         repoDir,
 		GoModFiles:                      files,
-		ModulesMapByModulePathByRepoDir: make(map[RepoDir]ModuleMapByModulePath),
-		ModulesByKey:                    make(map[ModuleKey]*GoModule),
+		ModulesMapByModulePathByRepoDir: make(ModulesMapByModulePathByRepoDir),
+		RepoDirsByModuleDir:             dtx.NewOrderedMap[ModuleDir, RepoDir](len(files)),
 		ModulesByModuleDir:              make(map[ModuleDir]*GoModule),
-		ModulePathsByModuleDir:          make(map[ModuleDir]ModulePath),
 		ModuleDirByModulePath:           make(map[ModulePath]ModuleDirMap),
-		RepoDirsByModuleDir:             make(map[ModuleDir]RepoDir),
 		ReposByRepoDir:                  make(map[RepoDir]*Repo),
 		ReposByModuleDir:                make(map[ModuleDir]*Repo),
-		//ReposByModulePath:    make(map[ModulePath]RepoDirsByModuleDir),
-		//Requires:             make([]ModulePath, 0),
 
-		// moduleDirVisited is a cache of visits we we don't repeatedly visit the same modules
+		// moduleDirVisited is a cache of visits so we don't repeatedly visit the same modules
 		moduleDirVisited: make(map[dt.DirPath]struct{}),
 		Writer:           args.Writer,
 		Logger:           args.Logger,
@@ -106,7 +102,14 @@ var ErrNoGoModuleFound = errors.New("no Go modules found")
 //goland:noinspection GoErrorStringFormat
 var ErrMultipleGoModulesFound = errors.New("multiple Go modules found")
 
-func (g *GoModGraph) Traverse() (results []string, err error) {
+type TraverseResult struct {
+	RepoModules *dtx.OrderedMap[RepoDir, []ModuleDir]
+}
+
+func (g *GoModGraph) Traverse() (result *TraverseResult, err error) {
+	result = &TraverseResult{
+		RepoModules: dtx.NewOrderedMap[RepoDir, []ModuleDir](10),
+	}
 
 	// Get the modules required for this repo
 	repo, ok := g.ReposByRepoDir[g.RepoDir]
@@ -114,14 +117,16 @@ func (g *GoModGraph) Traverse() (results []string, err error) {
 		err = NewErr(ErrNoGoModuleFound, "repo", g.RepoDir)
 		goto end
 	}
+
 	// Now traverse the unique requires for those modules that have local repos
-	results, err = g.traverseModule(repo.RequireDirs())
+	err = g.traverseModule(repo.RequireDirs(), result)
 end:
-	return results, err
+	return result, err
 }
 
-func (g *GoModGraph) traverseModule(modDirs []ModuleDir) (results []string, err error) {
+func (g *GoModGraph) traverseModule(modDirs []ModuleDir, result *TraverseResult) (err error) {
 	var errs []error
+
 	for _, modDir := range modDirs {
 		_, ok := g.moduleDirVisited[modDir]
 		if ok {
@@ -129,26 +134,43 @@ func (g *GoModGraph) traverseModule(modDirs []ModuleDir) (results []string, err 
 			continue
 		}
 		g.moduleDirVisited[modDir] = dtx.NULL{}
-		var repo *Repo
-		repo, ok = g.ReposByModuleDir[modDir]
+
+		// Get the specific module at this directory
+		module, ok := g.ModulesByModuleDir[modDir]
+		if !ok {
+			dtx.Panicf("module not found for directory %s", modDir)
+		}
+
+		// Ensure module has graph set (needed for RequireDirs)
+		err = module.SetGraph(g)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Recursively process dependencies for THIS SPECIFIC MODULE first
+		err = g.traverseModule(module.RequireDirs(), result)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Get the repo for this module
+		repo, ok := g.ReposByModuleDir[modDir]
 		if !ok {
 			dtx.Panicf("repo not found for Go module %s", modDir)
 		}
-		err = repo.SetGraph(g)
-		if err != nil {
-			errs = append(errs, err)
-			continue
+
+		// Add this module to the repo's module list in the OrderedMap
+		modules, exists := result.RepoModules.Get(repo.DirPath)
+		if !exists {
+			modules = []ModuleDir{}
 		}
-		var these []string
-		these, err = g.traverseModule(repo.RequireDirs())
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		these = append(these, fmt.Sprintf("Repo: %s, Module %s", repo.DirPath, modDir))
-		results = append(results, these...)
+		modules = append(modules, modDir)
+		result.RepoModules.Set(repo.DirPath, modules)
 	}
-	return results, err
+
+	return CombineErrs(errs)
 }
 
 func (g *GoModGraph) Build() (err error) {
@@ -170,72 +192,47 @@ func (g *GoModGraph) Build() (err error) {
 			continue
 		}
 
+		// Get or create OrderedMap for this repo
 		var repoMods ModuleMapByModulePath
 		repoMods, ok = g.ModulesMapByModulePathByRepoDir[repoDir]
 		if !ok {
-			repoMods = make(map[ModulePath]*GoModule)
+			repoMods = dtx.NewOrderedMap[ModulePath, *GoModule](10)
 			g.ModulesMapByModulePathByRepoDir[repoDir] = repoMods
 		}
-		_, ok = repoMods[gm.ModulePath()]
+
+		// Add module if not already present
+		_, ok = repoMods.Get(gm.ModulePath())
 		if !ok {
-			repoMods[gm.ModulePath()] = gm
+			repoMods.Set(gm.ModulePath(), gm)
 		}
 
-		//for _, module := range repoMods {
-		//	mp := module.ModulePath()
-		//	modDir := module.Dir()
-		//	mpRepos, ok := g.ReposByModulePath[mp]
-		//	if !ok {
-		//		_, ok := mpRepos[modDir]
-		//		if !ok {
-		//			mpRepos = make(RepoDirsByModuleDir)
-		//		}
-		//	}
-		//	mpRepos[modDir] = repoDir
-		//	g.ReposByModulePath[mp] = mpRepos
-		//}
-
-		for _, module := range repoMods {
-			g.RepoDirsByModuleDir[module.Dir()] = repoDir
+		// Update RepoDirsByModuleDir for all modules in repo
+		for module := range repoMods.Values() {
+			g.RepoDirsByModuleDir.Set(module.Dir(), repoDir)
 		}
 
-		key := gm.Key()
+		// Regular map updates (lookups only, no iteration)
 		mp := gm.ModulePath()
-		_, ok = g.ModulesByKey[key]
-		if !ok {
-			g.ModulesByKey[key] = gm
-		}
-		_, ok = g.ModulesByModuleDir[modDir]
-		if !ok {
-			g.ModulesByModuleDir[modDir] = gm
-		}
-		_, ok = g.ModulePathsByModuleDir[modDir]
-		if !ok {
-			g.ModulePathsByModuleDir[modDir] = mp
-		}
-		var dpMap ModuleDirMap
-		dpMap, ok = g.ModuleDirByModulePath[mp]
+		g.ModulesByModuleDir[modDir] = gm
+
+		// Update ModuleDirByModulePath
+		dpMap, ok := g.ModuleDirByModulePath[mp]
 		if !ok {
 			dpMap = ModuleDirMap{}
 			g.ModuleDirByModulePath[mp] = dpMap
 		}
 		dpMap[modDir] = struct{}{}
-		//g.Requires = gm.RequiredModulePaths()
-		//for _, dep := range g.Requires {
-		//	_, ok = g.ModuleDirByModulePath[dep]
-		//	if !ok {
-		//		g.ModuleDirByModulePath[dep] = make(ModuleDirMap)
-		//	}
-		//}
-	}
-	for mp, dp := range g.ModuleDirByModulePath {
-		if len(dp) > 0 {
-			continue
-		}
-		delete(g.ModuleDirByModulePath, mp)
 	}
 
-	for modDir, repoDir := range g.RepoDirsByModuleDir {
+	// Clean up empty entries
+	for mp, dp := range g.ModuleDirByModulePath {
+		if len(dp) == 0 {
+			delete(g.ModuleDirByModulePath, mp)
+		}
+	}
+
+	// Create Repo objects (now deterministic due to OrderedMap)
+	for modDir, repoDir := range g.RepoDirsByModuleDir.Iterator() {
 		repo := NewRepo(repoDir)
 		err = repo.SetGraph(g)
 		if err != nil {
@@ -245,5 +242,6 @@ func (g *GoModGraph) Build() (err error) {
 		g.ReposByModuleDir[modDir] = repo
 		g.ReposByRepoDir[repoDir] = repo
 	}
+
 	return CombineErrs(errs)
 }

@@ -49,7 +49,7 @@ func Plan(startDir string, args PlanArgs) (result *PlanResult, err error) {
 	var graph *GoModGraph
 	var repoDir dt.DirPath
 	var repoDirsToScan []dt.DirPath
-	var results []string
+	var traverseResult *TraverseResult
 	// Check for mutual exclusivity
 
 	// Ensure we have a directory to start with
@@ -109,9 +109,17 @@ func Plan(startDir string, args PlanArgs) (result *PlanResult, err error) {
 		goto end
 	}
 
-	results, err = graph.Traverse()
-	for _, path := range results {
-		fmt.Printf("%s\n", path)
+	traverseResult, err = graph.Traverse()
+	if err != nil {
+		goto end
+	}
+
+	// Format and print the grouped output
+	for repoDir, modules := range traverseResult.RepoModules.Iterator() {
+		fmt.Printf("\nRepo: %s\n", repoDir)
+		for _, modDir := range modules {
+			fmt.Printf("  Module: %s\n", modDir)
+		}
 	}
 
 	result = &PlanResult{}

@@ -2,7 +2,7 @@
 
 > A Multi-purpose CLI _(a.k.a. a "Swiss Army Knife")_ CLI for Go developers that consolidates project tooling, multi-repo workflows, and one-off utilities into a single, cohesive command-line experience.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](https://go.dev/)
 
 ---
@@ -45,7 +45,7 @@ See [FEATURES.md](FEATURES.md) for comprehensive details about planned features,
 
 - **[FEATURES.md](FEATURES.md)** - Detailed requirements, background, and design decisions (for contributors and future reference)
 - **[CLAUDE.md](CLAUDE.md)** - Architectural guide for AI-assisted development with Claude Code
-- **[LICENSE](LICENSE)** - MIT License
+- **[LICENSE](LICENSE)** - Apache License 2.0
 
 ## Installation
 
@@ -89,7 +89,7 @@ Squire is designed to be open source and welcomes contributions! However, it's s
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Author
 

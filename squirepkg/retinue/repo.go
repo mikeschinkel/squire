@@ -11,14 +11,13 @@ import (
 type Repo struct {
 	DirPath     RepoDir
 	Graph       *GoModGraph
-	modulesMap  ModuleMapByModulePath
+	modulesMap  ModuleMapByModulePath // Changed from map to OrderedMap via type alias
 	requireDirs []ModuleDir
 }
 
 func NewRepo(repoDir RepoDir) *Repo {
 	return &Repo{
-		DirPath:    repoDir,
-		modulesMap: make(ModuleMapByModulePath),
+		DirPath: repoDir,
 	}
 }
 
@@ -38,16 +37,16 @@ func (m *Repo) SetGraph(graph *GoModGraph) (err error) {
 
 func (m *Repo) GoModulePaths() (gms []ModulePath) {
 	m.chkSetGraph("GoModulePaths")
-	return slices.Collect(maps.Keys(m.modulesMap))
+	return m.modulesMap.GetKeys()
 }
 
 func (m *Repo) GoModules() (gms []*GoModule) {
 	m.chkSetGraph("GoModules")
-	return slices.Collect(maps.Values(m.modulesMap))
+	return m.modulesMap.GetValues()
 }
 
 func (m *Repo) chkSetGraph(funcName string) {
-	if len(m.modulesMap) == 0 {
+	if m.modulesMap == nil {
 		dtx.Panicf("ERROR: Must call Repo.SetGraph() before calling Repo.%s()", funcName)
 	}
 }

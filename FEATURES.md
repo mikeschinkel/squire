@@ -334,7 +334,7 @@ Squire should eventually help scaffold:
 While you personally don’t need org-level tools like gomodguard today, it’s worth noting:
 
 * **gomodguard** exists and can enforce allow/block lists for modules in `go.mod`. It’s useful for teams controlling which dependencies are allowed.
-* You previously designed a tool for **license-based module governance** (e.g. allow MIT, forbid GPL). That could be another Squire module in the future.
+* You previously designed a tool for **license-based module governance** (e.g. allow Apache-2.0, forbid GPL). That could be another Squire module in the future.
 
 Squire should keep these in mind as **future features**:
 
@@ -398,4 +398,3 @@ Some questions intentionally left open for future you (or contributors) to decid
 ---
 
 This document should evolve as Squire becomes real code. For now, it serves as the shared memory of what you were trying to achieve: one CLI, one opinionated orchestrator, handling Go workspaces, ClearPath, non-dependency dependencies like `go-doterr`, experiments, CI/release, and eventually more – without ever giving you “two watches” for the same concept.
-

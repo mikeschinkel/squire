@@ -634,7 +634,7 @@ Squire should:
 
   License-based dependency governance:
 
-  * There’s prior work on tools that govern dependencies by license (e.g. allow MIT, disallow GPL).
+  * There’s prior work on tools that govern dependencies by license (e.g. allow Apache-2.0, disallow GPL).
   * Squire may eventually include a dependency policy layer that:
 
     * Reads dependency metadata (including license).
@@ -828,7 +828,7 @@ Squire should:
 
   4. **License-based dependency governance**:
 
-     * There is prior work for license-whitelist / blacklist policies (e.g. allow MIT, disallow GPL).
+     * There is prior work for license-whitelist / blacklist policies (e.g. allow Apache-2.0, disallow GPL).
      * Squire may integrate this as a future module.
 
   5. **Multi-language backends**:
