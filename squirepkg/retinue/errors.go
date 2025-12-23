@@ -39,3 +39,4 @@ var ErrNoRepoRoot = errors.New("no repository root")
 
 var ErrGoModuleNameNotParsed = errors.New("name for Go module not parsed")
 var ErrRepoNotFoundForGoModule = errors.New("repo not found for Go module")
+var ErrNotImplemented = errors.New("not implemented")

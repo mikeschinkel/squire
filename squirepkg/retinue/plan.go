@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
+	"sort"
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
@@ -98,6 +99,11 @@ func Plan(startDir string, args PlanArgs) (result *PlanResult, err error) {
 	if err != nil {
 		goto end
 	}
+
+	// Sort go.mod files for deterministic graph building
+	sort.Slice(goModFiles, func(i, j int) bool {
+		return string(goModFiles[i]) < string(goModFiles[j])
+	})
 
 	// Now build the graph of all GoMod files
 	graph = NewGoModuleGraph(repoDir, goModFiles, GoModuleGraphArgs{

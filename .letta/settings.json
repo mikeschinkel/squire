@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/mikeschinkel/Projects/squire/squirepkg/apidiffr)",
+      "Bash(mkdir -p /Users/mikeschinkel/Projects/squire/squirepkg/gitutils)",
+      "Bash(cp /Users/mikeschinkel/Projects/go-pkgs/go-nextver/nextver/apidiffr/*.go /Users/mikeschinkel/Projects/squire/squirepkg/apidiffr/)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(cd /Users/mikeschinkel/Projects/squire/squirepkg && go get golang.org/x/exp/apidiff golang.org/x/tools/go/packages)",
+      "Bash(cd /Users/mikeschinkel/Projects/squire/squirepkg && go build ./apidiffr ./gitutils ./modutils 2>&1)",
+      "Edit(squirepkg/retinue/**)",
+      "Bash(grep:*)",
+      "Bash(cd /Users/mikeschinkel/Projects/squire && make build)",
+      "Bash(cd /Users/mikeschinkel/Projects/squire && make build 2>&1)",
+      "Bash(git diff:*)"
+    ]
+  }
+}

@@ -2,7 +2,6 @@ package retinue
 
 import (
 	"errors"
-	"maps"
 	"slices"
 
 	"github.com/mikeschinkel/go-dt/dtx"
@@ -53,13 +52,13 @@ func (m *Repo) chkSetGraph(funcName string) {
 
 func (m *Repo) UniqueModulePaths() (unique []ModulePath) {
 	gms := m.GoModules()
-	uniqueMap := make(map[ModulePath]struct{}, len(gms))
+	um := dtx.NewOrderedMap[ModulePath, struct{}](len(gms))
 	for _, module := range gms {
 		for _, r := range module.Require {
-			uniqueMap[ModulePath(r.Mod.Path)] = struct{}{}
+			um.Set(ModulePath(r.Mod.Path), struct{}{})
 		}
 	}
-	return slices.Collect(maps.Keys(uniqueMap))
+	return slices.Collect(um.Keys())
 }
 
 func (m *Repo) RequireDirs() (requireDirs []ModuleDir) {
@@ -97,5 +96,6 @@ func (m *Repo) RequireDirs() (requireDirs []ModuleDir) {
 	}
 	m.requireDirs = requireDirs[:n]
 end:
+
 	return m.requireDirs
 }

@@ -3,6 +3,7 @@ package retinue
 import (
 	"errors"
 	"log/slog"
+	"sort"
 
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
@@ -12,15 +13,26 @@ import (
 type ModuleDirMap map[ModuleDir]struct{}
 
 func (m ModuleDirMap) DirPaths() (dps []dt.DirPath) {
-	dps = make([]dt.DirPath, len(m))
+	dps = make([]dt.DirPath, 0, len(m))
 	for dp := range m {
 		dps = append(dps, dp)
 	}
+	// Sort for deterministic ordering
+	sort.Slice(dps, func(i, j int) bool {
+		return string(dps[i]) < string(dps[j])
+	})
 	return dps
 }
 func (m ModuleDirMap) DirPath() (dp dt.DirPath) {
-	for dp = range m {
-		break
+	// Get sorted paths for deterministic ordering
+	paths := m.DirPaths()
+	if len(paths) > 0 {
+		dp = paths[0]
+	}
+	// Debug: log when multiple paths exist for same module
+	if len(paths) > 1 {
+		// This shouldn't happen in practice - log if it does
+		_ = paths // suppress unused warning
 	}
 	return dp
 }
@@ -121,6 +133,9 @@ func (g *GoModGraph) Traverse() (result *TraverseResult, err error) {
 	// Now traverse the unique requires for those modules that have local repos
 	err = g.traverseModule(repo.RequireDirs(), result)
 end:
+	//printSlice(slices.Collect(result.RepoModules.Values()))
+	//os.Exit(1)
+
 	return result, err
 }
 

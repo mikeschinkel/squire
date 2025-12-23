@@ -13,7 +13,7 @@ var planOpts = &struct {
 	dir: new(string),
 }
 
-// PlanCmd creates .squire/config.json files for repos
+// PlanCmd displays the dependency graph for inspection
 type PlanCmd struct {
 	*cliutil.CmdBase
 }
@@ -21,14 +21,12 @@ type PlanCmd struct {
 func init() {
 	err := cliutil.RegisterCommand(&PlanCmd{
 		CmdBase: cliutil.NewCmdBase(cliutil.CmdArgs{
-			//Order:       5,
-			Name: "plan",
-			//Usage:       "plan [<dir>] | plan --file <path>",
-			Description: "Initialize .squire/config.json for repos (scans directory or reads from file)",
+			Name:        "plan",
+			Description: "Display module dependency graph",
 			ArgDefs: []*cliutil.ArgDef{
 				{
 					Name:     "dir",
-					Usage:    "Directory to scan and initialize (defaults=scan_dirs in ~/.config/squire)",
+					Usage:    "Directory to scan and initialize (defaults to current directory)",
 					Required: false,
 					String:   planOpts.dir,
 					Example:  "~/Projects",
@@ -43,10 +41,9 @@ func init() {
 
 // Handle executes the plan command
 func (c *PlanCmd) Handle() (err error) {
-	//var config *retinue.Config
 	var result *retinue.PlanResult
 
-	// Planialize repositories
+	// Run the plan command (original graph display)
 	result, err = retinue.Plan(*planOpts.dir, retinue.PlanArgs{
 		Config: c.Config.(*retinue.Config),
 		Logger: c.Logger,
