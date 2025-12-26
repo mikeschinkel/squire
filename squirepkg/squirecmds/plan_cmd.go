@@ -2,7 +2,7 @@ package squirecmds
 
 import (
 	"github.com/mikeschinkel/go-cliutil"
-	"github.com/mikeschinkel/squire/squirepkg/retinue"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 )
 
 var _ cliutil.CommandHandler = (*PlanCmd)(nil)
@@ -41,11 +41,11 @@ func init() {
 
 // Handle executes the plan command
 func (c *PlanCmd) Handle() (err error) {
-	var result *retinue.PlanResult
+	var result *squiresvc.PlanResult
 
 	// Run the plan command (original graph display)
-	result, err = retinue.Plan(*planOpts.dir, retinue.PlanArgs{
-		Config: c.Config.(*retinue.Config),
+	result, err = squiresvc.Plan(*planOpts.dir, squiresvc.PlanArgs{
+		Config: c.Config.(*squiresvc.Config),
 		Logger: c.Logger,
 		Writer: c.Writer,
 	})

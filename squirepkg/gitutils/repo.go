@@ -817,7 +817,7 @@ func acquireLock(lockDir dt.DirPath) (fn releaseFunc, err error) {
 	err = lockDir.MkdirAll(0o700)
 	if err != nil {
 		if os.IsExist(err) {
-			err = fmt.Errorf("another nextver run is in progress (lock exists at %s)", lockDir)
+			err = fmt.Errorf("another tuipoc run is in progress (lock exists at %s)", lockDir)
 		}
 		goto end
 	}

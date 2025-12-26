@@ -4,7 +4,7 @@ package _archive
 //import (
 //	"github.com/mikeschinkel/go-cliutil"
 //	"github.com/mikeschinkel/go-dt"
-//	"github.com/mikeschinkel/squire/squirepkg/retinue"
+//	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 //)
 //
 //var treeOpts = &struct {
@@ -116,14 +116,14 @@ package _archive
 //
 //// Handle executes the requires tree command
 //func (c *treeCmd) Handle() (err error) {
-//	var config *retinue.Config
+//	var config *squiresvc.Config
 //	var dir string
-//	var ms *retinue.ModuleSet
-//	var opts retinue.TreeOptions
+//	var ms *squiresvc.ModuleSet
+//	var opts squiresvc.TreeOptions
 //	var treeOutput string
 //	var embedPath dt.Filepath
 //
-//	config = c.Config.(*retinue.Config)
+//	config = c.Config.(*squiresvc.Config)
 //
 //	// Validate flag combinations
 //	err = validateTreeFlags()
@@ -139,14 +139,14 @@ package _archive
 //	}
 //
 //	// Discover modules
-//	ms, err = retinue.DiscoverModules(dir)
+//	ms, err = squiresvc.DiscoverModules(dir)
 //	if err != nil {
 //		err = NewErr(ErrCommand, ErrTree, err)
 //		goto end
 //	}
 //
 //	// Build tree options
-//	opts = retinue.TreeOptions{
+//	opts = squiresvc.TreeOptions{
 //		ShowDirs:  *treeOpts.ShowDirs,
 //		ShowPaths: *treeOpts.ShowPaths,
 //		ShowAll:   *treeOpts.ShowAll,
@@ -164,7 +164,7 @@ package _archive
 //	if *treeOpts.EmbedFile != "" {
 //		// Embed into markdown file
 //		embedPath = dt.Filepath(*treeOpts.EmbedFile)
-//		err = retinue.EmbedTree(embedPath, treeOutput, *treeOpts.Before)
+//		err = squiresvc.EmbedTree(embedPath, treeOutput, *treeOpts.Before)
 //		if err != nil {
 //			err = NewErr(ErrCommand, ErrTree, ErrFileWrite, "file", *treeOpts.EmbedFile, err)
 //			goto end

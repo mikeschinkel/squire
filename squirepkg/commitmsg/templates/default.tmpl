@@ -1,0 +1,25 @@
+Generate a git commit message for these staged changes.
+
+{{- if .ConventionalCommits }}
+Use conventional commit format (type: subject).
+{{- end }}
+
+{{- if .MaxSubjectChars }}
+Keep subject line under {{ .MaxSubjectChars }} characters.
+{{- end }}
+
+Add a blank line and bullet points in the body if needed.
+Output ONLY the commit message, no explanations or markdown formatting.
+
+{{- if .Branch }}
+Branch: {{ .Branch }}
+{{- end }}
+
+{{- if .AnalysisResults }}
+
+--- ANALYSIS RESULTS ---
+{{ .AnalysisResults }}
+{{- end }}
+
+--- STAGED DIFF ---
+{{ .StagedDiff }}

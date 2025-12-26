@@ -2,7 +2,7 @@ package _archive
 
 //import (
 //	"github.com/mikeschinkel/go-cliutil"
-//	"github.com/mikeschinkel/squire/squirepkg/retinue"
+//	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 //)
 //
 //var _ cliutil.CommandHandler = (*UpdateCmd)(nil)
@@ -45,13 +45,13 @@ package _archive
 //
 //// Handle executes the update command
 //func (c *UpdateCmd) Handle() (err error) {
-//	var config *retinue.Config
-//	var result *retinue.UpdateRepoRequiresResult
+//	var config *squiresvc.Config
+//	var result *squiresvc.UpdateRepoRequiresResult
 //
-//	config = c.Config.(*retinue.Config)
+//	config = c.Config.(*squiresvc.Config)
 //
 //	// Update requires for the repo
-//	result, err = retinue.UpdateRepoRequires(&retinue.UpdateRepoRequiresArgs{
+//	result, err = squiresvc.UpdateRepoRequires(&squiresvc.UpdateRepoRequiresArgs{
 //		DirArg: c.dirArg,
 //		Writer: c.Writer,
 //		Logger: c.Logger,

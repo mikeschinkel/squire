@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/mikeschinkel/go-fsfix"
-	"github.com/mikeschinkel/squire/squirepkg/retinue"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,9 +13,9 @@ import (
 func TestModuleDiscovery(t *testing.T) {
 	t.Run("SingleModule", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
+		var ms *squiresvc.ModuleSet
 
-		tf := fsfix.NewRootFixture("retinue-single-module")
+		tf := fsfix.NewRootFixture("squiresvc-single-module")
 		defer tf.Cleanup()
 
 		// Create a simple project with .squire/config.json and go.mod
@@ -40,20 +40,20 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 		require.NotNil(t, ms, "Should return ModuleSet")
 
 		assert.Len(t, ms.Modules, 1, "Should discover exactly one module")
 		assert.Equal(t, "github.com/example/test-project", ms.Modules[0].ModulePath)
-		assert.Equal(t, retinue.LibModuleKind, ms.Modules[0].Kind, "Root module should be detected as lib")
+		assert.Equal(t, squiresvc.LibModuleKind, ms.Modules[0].Kind, "Root module should be detected as lib")
 	})
 
 	t.Run("MultipleModules", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
+		var ms *squiresvc.ModuleSet
 
-		tf := fsfix.NewRootFixture("retinue-multiple-modules")
+		tf := fsfix.NewRootFixture("squiresvc-multiple-modules")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "multi-module-project", nil)
@@ -99,13 +99,13 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 		require.NotNil(t, ms, "Should return ModuleSet")
 
 		assert.Len(t, ms.Modules, 3, "Should discover all three modules")
 
-		modulesByPath := make(map[string]*retinue.Module)
+		modulesByPath := make(map[string]*squiresvc.Module)
 		for _, m := range ms.Modules {
 			modulesByPath[m.ModulePath] = m
 		}
@@ -117,9 +117,9 @@ go 1.23
 
 	t.Run("NoSquireConfig", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
+		var ms *squiresvc.ModuleSet
 
-		tf := fsfix.NewRootFixture("retinue-no-config")
+		tf := fsfix.NewRootFixture("squiresvc-no-config")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "no-config-project", nil)
@@ -132,7 +132,7 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 
 		require.Error(t, err, "Should return error when no .squire config exists")
 		assert.Nil(t, ms, "Should not return ModuleSet on error")
@@ -143,10 +143,10 @@ go 1.23
 func TestModuleOrdering(t *testing.T) {
 	t.Run("SimpleLinearDependency", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
-		var ordered retinue.Modules
+		var ms *squiresvc.ModuleSet
+		var ordered squiresvc.Modules
 
-		tf := fsfix.NewRootFixture("retinue-linear-deps")
+		tf := fsfix.NewRootFixture("squiresvc-linear-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "linear-project", nil)
@@ -182,7 +182,7 @@ require github.com/example/linear/lib v0.0.0
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -197,10 +197,10 @@ require github.com/example/linear/lib v0.0.0
 
 	t.Run("NoDependencies", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
-		var ordered retinue.Modules
+		var ms *squiresvc.ModuleSet
+		var ordered squiresvc.Modules
 
-		tf := fsfix.NewRootFixture("retinue-no-deps")
+		tf := fsfix.NewRootFixture("squiresvc-no-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "independent-modules", nil)
@@ -244,7 +244,7 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -265,10 +265,10 @@ go 1.23
 
 	t.Run("CircularDependency", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
-		var ordered retinue.Modules
+		var ms *squiresvc.ModuleSet
+		var ordered squiresvc.Modules
 
-		tf := fsfix.NewRootFixture("retinue-circular-deps")
+		tf := fsfix.NewRootFixture("squiresvc-circular-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "circular-project", nil)
@@ -306,7 +306,7 @@ require github.com/example/circular/module-a v0.0.0
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -318,10 +318,10 @@ require github.com/example/circular/module-a v0.0.0
 
 	t.Run("ComplexDependencyTree", func(t *testing.T) {
 		var err error
-		var ms *retinue.ModuleSet
-		var ordered retinue.Modules
+		var ms *squiresvc.ModuleSet
+		var ordered squiresvc.Modules
 
-		tf := fsfix.NewRootFixture("retinue-complex-deps")
+		tf := fsfix.NewRootFixture("squiresvc-complex-deps")
 		defer tf.Cleanup()
 
 		// Create a diamond dependency pattern:
@@ -390,7 +390,7 @@ require (
 
 		tf.Create(t)
 
-		ms, err = retinue.DiscoverModules(string(pf.Dir()))
+		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()

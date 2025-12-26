@@ -9,9 +9,9 @@ import (
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt/appinfo"
-	"github.com/mikeschinkel/squire/squirepkg/retinue"
 	"github.com/mikeschinkel/squire/squirepkg/squire"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 )
 
 // RunCLI is the main CLI entry point for the xmlui-test-server application.
@@ -28,7 +28,7 @@ import (
 func RunCLI() {
 	var err error
 	//var squirecfg *squirecfg.RootConfigV1
-	var config *retinue.Config
+	var config *squiresvc.Config
 	var squireCfg *squirecfg.RootConfigV1
 	var globalOptions *cliutil.GlobalOptions
 	var cfgOptions *squirecfg.Options
@@ -83,7 +83,7 @@ func RunCLI() {
 		os.Exit(cliutil.ExitConfigLoadError)
 	}
 
-	config, err = ParseConfig(squireCfg, retinue.ConfigArgs{
+	config, err = ParseConfig(squireCfg, squiresvc.ConfigArgs{
 		Options: options,
 		Writer:  wr.Writer,
 		Logger:  wr.Logger,

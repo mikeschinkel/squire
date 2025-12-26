@@ -14,8 +14,8 @@ import (
 	"github.com/mikeschinkel/go-dt/appinfo"
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/mikeschinkel/go-testutil"
-	"github.com/mikeschinkel/squire/squirepkg/retinue"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 )
 
 // TestInitRepos_ScanDirectory tests initializing repos by scanning a directory
@@ -23,7 +23,7 @@ func TestInitRepos_ScanDirectory(t *testing.T) {
 	var tf *fsfix.RootFixture
 	var repo1 *fsfix.RepoFixture
 	var repo2 *fsfix.RepoFixture
-	var result *retinue.InitReposResult
+	var result *squiresvc.InitReposResult
 	var err error
 	var writer *testutil.BufferedWriter
 	var logger *slog.Logger
@@ -74,7 +74,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Initialize repos
-	result, err = retinue.Init(retinue.InitArgs{
+	result, err = squiresvc.Init(squiresvc.InitArgs{
 		FilePath: "",
 		DirPath:  string(tf.Dir()),
 		Writer:   writer,
@@ -125,7 +125,7 @@ go 1.25.3
 	}
 
 	// Load repo2 config using cfgstore
-	store = retinue.ProjectConfigStore(repo2.Dir())
+	store = squiresvc.ProjectConfigStore(repo2.Dir())
 
 	var repoConfig squirecfg.RepoConfig
 	err = store.LoadJSON(&repoConfig)
@@ -148,7 +148,7 @@ go 1.25.3
 	}
 
 	// Verify cmd module has correct role
-	if repoConfig.Modules["./cmd"].Kinds[0] != retinue.ExeModuleKind {
+	if repoConfig.Modules["./cmd"].Kinds[0] != squiresvc.ExeModuleKind {
 		t.Errorf("expected cmd module role 'cli', got %q", repoConfig.Modules["./cmd"].Kinds[0])
 	}
 }
@@ -159,7 +159,7 @@ func TestInitRepos_ReadFile(t *testing.T) {
 	var repo1 *fsfix.RepoFixture
 	var repo2 *fsfix.RepoFixture
 	var inputFile *fsfix.FileFixture
-	var result *retinue.InitReposResult
+	var result *squiresvc.InitReposResult
 	var err error
 	var writer *mockWriter
 	var logger *slog.Logger
@@ -205,7 +205,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Initialize repos from file
-	result, err = retinue.InitializeRepos(&retinue.InitializeRepoArgs{
+	result, err = squiresvc.InitializeRepos(&squiresvc.InitializeRepoArgs{
 		FilePath: string(inputFile.Filepath),
 		DirArg:   "",
 		AppInfo:  testAppInfo(),
@@ -232,7 +232,7 @@ func TestInitRepos_AlreadyManaged(t *testing.T) {
 	var tf *fsfix.RootFixture
 	var repo *fsfix.RepoFixture
 	var squireDir *fsfix.DirFixture
-	var result *retinue.InitReposResult
+	var result *squiresvc.InitReposResult
 	var err error
 	var writer *mockWriter
 	var logger *slog.Logger
@@ -277,7 +277,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Try to initialize already managed repo
-	result, err = retinue.InitializeRepos(&retinue.InitializeRepoArgs{
+	result, err = squiresvc.InitializeRepos(&squiresvc.InitializeRepoArgs{
 		FilePath: "",
 		DirArg:   string(tf.Dir()),
 		AppInfo:  testAppInfo(),

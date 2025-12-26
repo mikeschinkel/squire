@@ -4,7 +4,7 @@ package _archive
 //	"github.com/mikeschinkel/go-cliutil"
 //	"github.com/mikeschinkel/go-dt"
 //	"github.com/mikeschinkel/go-dt/dtx"
-//	"github.com/mikeschinkel/squire/squirepkg/retinue"
+//	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 //)
 //
 //var scanOpts = &struct {
@@ -77,13 +77,13 @@ package _archive
 //	if err != nil {
 //		goto end
 //	}
-//	_, err = retinue.FindGoModFiles[dt.DirPath](retinue.FindGoModFilesArgs{
+//	_, err = squiresvc.FindGoModFiles[dt.DirPath](squiresvc.FindGoModFilesArgs{
 //		DirPaths:      []dt.DirPath{dp},
 //		ContinueOnErr: *scanOpts.ContinueOnErr,
 //		Logger:        c.Logger,
 //		Writer:        c.Writer,
 //		SilenceErrs:   *scanOpts.SilenceErrs,
-//		SkipBehavior:  retinue.SkipManaged,
+//		SkipBehavior:  squiresvc.SkipManaged,
 //		MatchBehavior: dtx.WriteOnMatch,
 //		ParseEntryFunc: func(ep dt.EntryPath, _ dt.DirPath, _ dt.DirEntry) dt.EntryPath {
 //			return dt.EntryPath(ep.Dir())

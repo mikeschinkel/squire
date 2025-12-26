@@ -43,14 +43,14 @@ package _archive
 //
 //// Handle executes the modspec add command
 //func (c *ModspecAddCmd) Handle() (err error) {
-//	//var config *retinue.Config
+//	//var config *squiresvc.Config
 //	var rootConfig *squirecfg.RootConfigV1
 //	var pattern string
 //	var specs []string
 //	var spec string
 //	var isDuplicate bool
 //
-//	//config = c.Config.(*retinue.Config)
+//	//config = c.Config.(*squiresvc.Config)
 //
 //	// Validate and normalize pattern
 //	pattern = strings.TrimSpace(c.pattern)

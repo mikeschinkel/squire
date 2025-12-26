@@ -9,6 +9,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-logutil"
 	"github.com/mikeschinkel/squire/squirepkg/squire"
 
@@ -80,6 +81,11 @@ func Initialize(args *RunArgs) (err error) {
 
 	if args == nil {
 		args = &RunArgs{}
+	}
+
+	err = dt.EnsureUserHomeDir()
+	if err != nil {
+		goto end
 	}
 
 	cliutil.SetWriter(args.Writer)

@@ -2,7 +2,7 @@ package _archive
 
 //import (
 //	"github.com/mikeschinkel/go-cliutil"
-//	"github.com/mikeschinkel/squire/squirepkg/retinue"
+//	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 //)
 //
 //var _ cliutil.CommandHandler = (*InitCmd)(nil)
@@ -61,16 +61,16 @@ package _archive
 //
 //// Handle executes the init command
 //func (c *InitCmd) Handle() (err error) {
-//	//var config *retinue.Config
-//	var result *retinue.InitReposResult
+//	//var config *squiresvc.Config
+//	var result *squiresvc.InitReposResult
 //
 //	// Initialize repositories
-//	result, err = retinue.Init(retinue.InitArgs{
+//	result, err = squiresvc.Init(squiresvc.InitArgs{
 //		FilePath: c.filePath,
 //		DirPath:  c.dir,
 //		Writer:   c.Writer,
 //		Logger:   c.Logger,
-//		Config:   c.Config.(*retinue.Config),
+//		Config:   c.Config.(*squiresvc.Config),
 //	})
 //	if err != nil {
 //		goto end

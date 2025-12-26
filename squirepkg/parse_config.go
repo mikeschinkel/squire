@@ -2,25 +2,25 @@ package squirepkg
 
 import (
 	"github.com/mikeschinkel/go-dt"
-	"github.com/mikeschinkel/squire/squirepkg/retinue"
 	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 )
 
-func ParseConfig(cfg *squirecfg.RootConfigV1, args retinue.ConfigArgs) (c *retinue.Config, err error) {
+func ParseConfig(cfg *squirecfg.RootConfigV1, args squiresvc.ConfigArgs) (c *squiresvc.Config, err error) {
 	var scanDirs []dt.DirPath
-	var modSpecs []retinue.ModuleSpec
+	var modSpecs []squiresvc.ModuleSpec
 
 	scanDirs, err = dt.ParseDirPaths(cfg.ScanDirs)
 	if err != nil {
 		goto end
 	}
 
-	modSpecs, err = retinue.ParseModuleSpecs(cfg.ModuleSpecs)
+	modSpecs, err = squiresvc.ParseModuleSpecs(cfg.ModuleSpecs)
 	if err != nil {
 		goto end
 	}
 
-	c = &retinue.Config{
+	c = &squiresvc.Config{
 		Options:     args.Options,
 		ScanDirs:    scanDirs,
 		ModuleSpecs: modSpecs,

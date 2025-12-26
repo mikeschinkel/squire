@@ -1,0 +1,32 @@
+
+You are helping a developer split staged changes into logical commits.
+
+Analyze these staged files and suggest logical groupings for separate commits.
+
+{{ if .AnalysisMarkdown }}
+--- ANALYSIS RESULTS ---
+{{ .AnalysisMarkdown }}
+{{ end }}
+
+--- STAGED FILES ---
+{{ range .StagedFiles }}
+- {{ . }}
+{{ end }}
+
+Guidelines:
+- Group related changes together (same feature, same bug fix, etc.)
+- Separate breaking changes from compatible changes
+- Separate refactoring from new features
+- Each group should be independently reviewable
+- Minimum 1 file per group, no maximum
+
+Output ONLY a JSON array with this structure:
+[
+  {
+    "title": "Brief description of this commit",
+    "files": ["path/to/file1.go", "path/to/file2.go"],
+    "rationale": "Why these files belong together"
+  }
+]
+
+Do not include any explanatory text, only the JSON array.

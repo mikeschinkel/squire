@@ -3,7 +3,7 @@
     "allow": [
       "Bash(mkdir -p /Users/mikeschinkel/Projects/squire/squirepkg/apidiffr)",
       "Bash(mkdir -p /Users/mikeschinkel/Projects/squire/squirepkg/gitutils)",
-      "Bash(cp /Users/mikeschinkel/Projects/go-pkgs/go-nextver/nextver/apidiffr/*.go /Users/mikeschinkel/Projects/squire/squirepkg/apidiffr/)",
+      "Bash(cp /Users/mikeschinkel/Projects/go-pkgs/go-tuipoc/tuipoc/apidiffr/*.go /Users/mikeschinkel/Projects/squire/squirepkg/apidiffr/)",
       "Bash(ls:*)",
       "Bash(head:*)",
       "Bash(cd /Users/mikeschinkel/Projects/squire/squirepkg && go get golang.org/x/exp/apidiff golang.org/x/tools/go/packages)",
