@@ -118,7 +118,7 @@ func init() {
 }
 
 func (c *MyCmd) Handle() error {
-    config := c.Config.(*common.Config)
+    config := c.Config.(*squire.Config)
     c.Writer.Printf("Executing...\n")
     return nil
 }
@@ -150,12 +150,12 @@ cmd/main.go
 
 - squirepkg/run_cli.go: entry point, options/config parsing, initialization
 - squirepkg/run.go: command runner orchestration
-- squirepkg/config.go: config transformation (squirecfg -> common)
+- squirepkg/config.go: config transformation (squirecfg -> squire)
 - squirepkg/parse_options.go: options transformation
 
 Common packages:
 
-- squirepkg/common: Config, Options, constants, singleton logger/writer
+- squirepkg/squire: Config, Options, constants, singleton logger/writer
 - squirepkg/squirecfg: configuration file structures, go-cfgstore loading
 - squirepkg/squirecmds: command implementations
 
@@ -169,7 +169,7 @@ Common packages:
 ### Error Handling and Conventions
 
 - Use ClearPath-style goto end cleanup patterns when appropriate.
-- Package-level singleton access via common.EnsureLogger().
+- Package-level singleton access via squire.EnsureLogger().
 - Exit codes (run_cli.go):
   - 1: options parsing error
   - 2: config loading error
@@ -373,29 +373,8 @@ Tree format:
 ### plan and next/process
 
 - squire plan: graph display (inspection). Must remain backward compatible.
-- squire next / process: engine-based leaf selection and verdicts. Output is machine-parseable.
+- squire next: engine-based leaf selection and verdicts. Output is machine-parseable.
 
-Example output (next/process):
-
-```
-/Users/mikeschinkel/Projects/go-pkgs/go-dt|withheld|no baseline tag found (first release?)
-```
-
-### Future Go Commands
-
-- squire go test: run tests across owned modules, using GOEXPERIMENT directives.
-- squire go lint: wraps golangci-lint plus ClearPath linter.
-- squire go build: build CLI modules; integrate with GoReleaser.
-- squire go fuzz: infinite fuzz testing based on existing scripts.
-- squire go dev-on/dev-off (names TBD): toggle go.work + replace overrides.
-- squire go release init: TUI for GoReleaser and release workflow scaffolding.
-
-### Workspace Commands (Future)
-
-- squire workspace set <name>
-- squire workspace list
-- squire workspace add <name>
-- squire workspace discover (TUI)
 
 ---
 
@@ -419,110 +398,6 @@ Example output (next/process):
 - Find in-flux modules whose dependencies are all clean.
 - Release bottom-up, then repeat.
 
-### Deterministic Output
-
-Use ordered maps (dtx.OrderedMap) and sorting to ensure stable output across runs.
-
----
-
-## Retinue Engine and Current Status
-
-### Engine API (in progress)
-
-- VerdictType enum: breaking, likely_breaking, maybe_not_breaking, withheld, unknown.
-- EngineResult: leaf module dir, repo dir, repo modules, LocalTagNotPushed, verdict, verdict reason, in-flux dependencies.
-- EngineArgs: StartDir, RepoDirs, Config, Logger, Writer.
-- ReleaseEngine.Run(ctx): normalize paths, scan repos, build graph, find leaf, check tags, compute verdict.
-
-### Current Status (from PLAN.md)
-
-Completed:
-
-- apidiffr, gitutils, modutils migrated into squire.
-- Engine API and core flow implemented.
-- Leaf selection and in-flux checks partially implemented.
-
-In progress:
-
-- Remove unused variables in engine.go.
-- Resolve modutils/retinue overlap (merge into retinue recommended).
-- Complete in-flux detection (git dirty, replace directives, tag push checks).
-- Implement verdict computation via apidiffr and baseline tag discovery.
-- Wire plan to engine without changing output.
-- Create minimal process command.
-- Testing against real repos.
-
----
-
-## go-tuipoc Integration Plan (Next Version Analysis)
-
-Purpose: integrate go-tuipoc version analysis into squire.
-
-Key points:
-
-- go-tuipoc determines next semver for a single module based on API changes since last tag.
-- squire orchestrates multi-repo release order.
-
-Missing pieces to migrate:
-
-- analyzer.go, baseline.go, judgment.go, result.go, precondition.go, review/tests.go, cli.go
-
-Integration phases:
-
-1. Copy core logic into squirepkg/tuipoc and adapt imports.
-2. Integrate into retinue engine and process command output.
-3. Add squire version command with --json output.
-4. Later: stability contract validation (from go-tuipoc PLAN).
-
----
-
-## PRE-commit Analysis Plan (Staged Changes)
-
-Purpose: analyze staged changes before commit to generate commit messages and verdicts.
-
-Key elements:
-
-- Use staged file export to temp directory (git show :path).
-- Use cached worktree for baseline tag comparisons.
-- Perform API compatibility analysis, AST diff analysis, and test signal analysis.
-- Aggregate results into precommit.Results with Verdict.
-- Support persistence of analysis in cache (~/.cache/squire/analysis/...).
-- Support AI-driven commit grouping and multi-commit workflows.
-
-New packages (planned):
-
-- squirepkg/gitutils: git operations, cached worktrees, staged export, repo queries, locks.
-- squirepkg/squirescliui: terminal UI and display helpers.
-- squirepkg/precommit: pre-commit analysis orchestration.
-- squirepkg/goutils (rename/broaden gomodutils): Go language utilities, analysis functions.
-
-Commit message generation will be template-driven with user and project overrides:
-
-- Built-in templates (default, breaking).
-- User templates: ~/.config/squire/templates/
-- Project templates: .squire/templates/
-- Override order: project -> user -> built-in.
-
-Multi-commit flow:
-
-- AI suggests commit groupings.
-- Interactive restaging per group.
-- Handle remaining unstaged files.
-
-Edge cases:
-
-- No baseline tag -> verdict unknown, allow commit.
-- Nested modules -> exclude nested module paths.
-- Binary files -> copy bytes; analyzers skip.
-- Deleted files -> skip staged export for deleted file.
-- Partial staging -> staged version used.
-- Concurrent invocations -> lock files.
-- Cache staleness -> fetch before checkout; support --no-cache.
-- Large diffs -> truncate or diffstat.
-- Template errors -> fallback to built-in.
-- Analysis persistence conflicts -> cache key includes staged hash.
-
----
 
 ## Commit Message Generation (LLM CLI MVP)
 
@@ -591,78 +466,31 @@ Redaction rules for env and args with secrets.
 
 ---
 
-## GoModule Consolidation Plan
-
-Goal: unify gomodutils.Module and retinue.GoModule into a single gomodutils.Module, with retinue.ModuleExt for Squire-specific logic.
-
-Key decisions:
-
-- Keep gomodutils.Module as canonical type.
-- Rename GoModGraph -> Graph in gomodutils.
-- Graph and Repo move to gomodutils.
-- Module works standalone or with SetGraph().
-- retinue.ModuleExt wraps Module and implements IsInFlux.
-
-Implementation highlights:
-
-- Module gains Graph, repo, modfile, loaded fields.
-- New methods: SetGraph, Dir, Key, Repo, RequireDirs, HasReplaceDirectives.
-- AnalyzeStatus becomes method.
-- Guard methods enforce Load and SetGraph where needed.
-
----
-
 ## Roadmap (Planned Features and Status)
 
 ### Policy File Sync and Drop-in Manager
-
-Status: not started. Priority: medium.
 
 - squire sync to distribute policy files across repos.
 - Declarative rules from user or project config.
 - Supports copy, template, merge, drop-in actions.
 
-### External Module Dependencies for requires-tree
-
-Status: not started. Priority: medium.
-
-- Implement --all to include external modules.
-- Discover via go list -m -json.
-- Handle network/proxy failures gracefully.
-
 ### API Stability Management
-
-Status: not started. Priority: high.
-
-Includes:
 
 - Changelog generation from Contract annotations.
 - Contract enforcement tooling.
 - Cross-repo stability validation.
 - RemoveAfter timeline coordination.
 - Breaking change reports.
-- Integration with go-tuipoc.
-
-### Interactive Commit Workflow with LLM Generation
-
-Status: in progress. Priority: high.
-
-- Interactive menu in squire next is implemented.
-- AI commit message generation is in progress.
-- BubbleTea commit editor not started.
-- Configurable LLM providers not started.
-- Draft management not started.
-- Standalone squire commitmsg command not started.
+- Basic proof-of-concept for TUI in go-tuipoc.
 
 ---
 
 ## Release Automation and GitHub Integration
 
-- Tagging and releasing are done via GitHub Actions, not Squire directly.
+- Tagging and releasing can be done either by Squire directly or by GitHub Actions depending on configuration.
 - Release workflow should run tests, lint, vet before tagging.
-- GoReleaser used for binary releases.
-- Use go-github SDK, not gh CLI.
-- Ensure .github/workflows/test.yml and release.yml exist for managed repos.
+- GoReleaser as an option used for binary releases.
+- Optional commands to ensure appropriate .github/workflows exist for managed repos.
 
 ---
 
@@ -675,15 +503,17 @@ Squire treats go.work and replace directives as orthogonal knobs:
 
 Commands (names TBD):
 
-- dev-on/dev-off to add or remove Squire-managed replace blocks.
-- adopt mode for existing replace directives.
-- ensure go.work and go.work.sum are managed or ignored per policy.
+- Commands to add or remove Squire-managed replace blocks.
+- If needed, commands adopt mode for existing replace directives.
+- Commands should ensure go.work/.sum are managed or ignored per policy.
 
 ---
 
 ## Language-Aware Commands
 
-Design supports a current language with possible overrides:
+We hvae discussed this ideas as potential for future, but not finalized plans for them.
+
+Design potentially supports a current language with possible overrides:
 
 ```json
 {
@@ -696,128 +526,14 @@ Commands like squire test/lint/build should default to current language, with --
 
 ---
 
-## TUI Requirements
-
-TUIs are expected for:
-
-- workspace discover
-- drop-in configuration
-- GoReleaser scaffolding
-- interactive release workflows
-
-Non-interactive flags should exist for CI and scripting. BubbleTea is an acceptable framework.
-
----
-
-## Non-Dependency Dependencies (Drop-ins)
-
-Squire treats embeddable single-file utilities (go-doterr) as a first-class pattern.
-
-Features:
-
-- squire embed add <url>
-- squire embed update <name>
-- squire embed update --all
-- squire embed list
-
-Drop-ins are configured in .squire/config.json (future dropins section) with modes:
-
-- dot
-- copy
-- ignore
-
-Updates are explicit and not tied to normal dependency bumps.
-
----
-
-## External References: AWS Multi-Module Tools
-
-Squire draws inspiration from AWS go multi-module repository tools:
-
-- modman.toml for dependency policy and per-module release behavior.
-- .changelog/ annotation files and generatechangelog workflow.
-- release manifest pipeline (calculaterelease -> tagrelease).
-- makerelative/clearrelative for replace directives.
-- eachmodule for running commands across modules.
-- go_module_metadata generation.
-
----
-
-## ADRs and Conventions
-
-### ADR-2025-12-21: Branch Metadata Storage
-
-- Each repo is authoritative for expectations about its direct dependencies (branch, remote, path).
-- Expectations stored in .git/config and mirrored to JSON on a well-known branch (shared).
-- Directory-anchored resolution for worktrees.
-- Validate at runtime; do not store observed Git state.
-
-### ADR-2025-12-25: appsvc Directory Layout
-
-Use appsvc as the package for app-specific workflows/services called by commands.
-
-Layout example:
-
-```
-app
-  cmd
-  test
-  apppkg
-    app
-    appcfg
-    appcmds
-    appcliui
-    apptui
-    appsvc
-```
-
-Rules:
-
-- appcmds depend on appsvc, not vice versa.
-- UI packages must not be imported by appsvc.
-
----
-
-## Development Commands
-
-Build:
-
-- go build ./...
-- cd cmd && go build
-- go install ./cmd/...
-
-Test:
-
-- go test -v ./...
-- go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-- go work sync && go test ./...
-
-Lint:
-
-- go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2 run ./... --timeout=5m
-
-Format:
-
-- gofmt -s -w .
-- go vet ./...
-
-Dependencies:
-
-- go work sync
-- go mod tidy in cmd/, squirepkg/, test/
-
-Run:
-
-- go run ./cmd/main.go [command] [args]
-- squire [command] [args]
-
----
 
 ## Naming and Miscellany
 
 ### Squire Naming
 
-Squire is an opinionated tool but designed to be useful to others. It is open source, Apache 2.0 licensed, and uses go-cliutil, go-cfgstore, and go-dt.
+Squire is an opinionated tool but designed to be useful to others. It is open source, Apache 2.0 licensed
+
+Squire will soon be renamed to Gomion.
 
 ### Gomion Pronunciation
 
@@ -825,27 +541,6 @@ Gomion is pronounced GOM-yun (short "o" as in pom, then "yun"). Two syllables, f
 
 ---
 
-## Current Testing and Validation Tasks
-
-From TREE_PLAN.md, testing after FlagSet migration:
-
-- ./bin/squire help
-- ./bin/squire help scan
-- ./bin/squire help init
-- ./bin/squire help requires-list
-- ./bin/squire help requires-tree
-- ./bin/squire scan --continue .
-- ./bin/squire requires-list --format=json .
-- ./bin/squire requires-tree --show-dirs .
-- ./bin/squire requires-tree --embed=/tmp/test.md --before .
-
-Expected:
-
-- Main help shows clean command list (no command-specific flags).
-- Command help shows OPTIONS header consistently.
-- Flags parse and execute correctly.
-
----
 
 ## What Not to Add
 
@@ -854,23 +549,3 @@ Expected:
 - Do add commands that orchestrate multiple go commands.
 - Do add multi-repo orchestration commands.
 
-Examples of desired commands:
-
-- squire go ci
-- squire go test-all
-- squire workspace set
-- squire workspace discover
-- squire deps ensure
-- squire replace enable/disable
-
----
-
-## Acknowledgments and Dependencies
-
-Squire is built with:
-
-- go-cliutil
-- go-cfgstore
-- go-dt
-
-It is authored by Mike Schinkel and licensed under Apache 2.0.

@@ -17,6 +17,12 @@ var nextOpts = &struct {
 	dir: new(string),
 }
 
+// emptyModeState is a dummy ModeState implementation
+// Each mode has its own embedded state (modeBase), so this is unused
+type emptyModeState struct{}
+
+func (emptyModeState) ModeState() {}
+
 // NextCmd determines the next module to next with minimal output
 type NextCmd struct {
 	*cliutil.CmdBase
@@ -91,13 +97,45 @@ func (c *NextCmd) Handle() (err error) {
 	if cliutil.IsInteractive() {
 		isDirty := result.StagedFiles > 0 || result.UnstagedFiles > 0 || result.UntrackedFiles > 0
 		if isDirty {
-			err = cliutil.ShowMenu(cliutil.MenuArgs{
-				Mode: squirescliui.NewDirtyRepoMode(squirescliui.DirtyRepoModeArgs{
-					ModuleDir: result.LeafModuleDir,
-					Writer:    c.Writer,
-					Logger:    c.Logger,
-				}),
-				Writer: c.Writer.Writer(),
+			// TODO: Plan to change to auto-registration like how commands are
+			//  auto-registered in squirepkg/squirecmds.
+
+			// Create mode manager
+			// Note: ModeState is unused since each mode has its own embedded state (modeBase)
+			var state emptyModeState
+			manager := cliutil.NewModeManager(state, c.Writer, c.Logger)
+
+			// Register modes (each mode creates its own state via modeBase)
+			err = manager.RegisterMode(0, squiresvc.NewMainMode(result.LeafModuleDir, c.Writer, c.Logger))
+			if err != nil {
+				goto end
+			}
+
+			err = manager.RegisterMode(1, squiresvc.NewExploreMode(result.LeafModuleDir, c.Writer, c.Logger))
+			if err != nil {
+				goto end
+			}
+
+			err = manager.RegisterMode(2, squiresvc.NewManageMode(result.LeafModuleDir, c.Writer, c.Logger))
+			if err != nil {
+				goto end
+			}
+
+			err = manager.RegisterMode(3, squiresvc.NewComposeMode(result.LeafModuleDir, c.Writer, c.Logger))
+			if err != nil {
+				goto end
+			}
+
+			// Set initial mode to Main (F2)
+			err = manager.SwitchMode(0)
+			if err != nil {
+				goto end
+			}
+
+			// Run modal menu
+			err = cliutil.ShowMultiModeMenu(cliutil.MultiModeMenuArgs{
+				Manager: manager,
+				Writer:  c.Writer,
 			})
 			if err != nil {
 				c.Writer.Printf("Interactive menu error: %v\n", err)

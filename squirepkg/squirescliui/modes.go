@@ -187,7 +187,7 @@ func generateCommitMessageInteractive(moduleDir dt.DirPath, writer cliutil.Write
 			Writer:          writer,
 			Logger:          logger,
 		}),
-		Writer: writer.Writer(),
+		Writer: writer,
 	})
 
 end:
