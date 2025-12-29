@@ -4,22 +4,23 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/squire/squirepkg/gitutils"
 )
 
 // NewManageMode creates the Manage mode (F4)
 // Manage staging area and groups
-func NewManageMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) cliutil.MenuMode {
+func NewManageMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) climenu.MenuMode {
 	mode := &manageMode{
 		modeBase: newModeBase(moduleDir),
 	}
 
-	baseMode := cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{
+	baseMode := climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{
 		ModeID:   2,
 		ModeName: "Manage",
 		Writer:   writer,
-		MenuOptions: []cliutil.MenuOption{
+		MenuOptions: []climenu.MenuOption{
 			{
 				Name:        "Stage",
 				Description: "Stage a group (exclusive)",
@@ -50,7 +51,7 @@ func NewManageMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Log
 
 // handleStage stages a group exclusively
 // Unstages all → stages group's files/hunks → creates snapshot
-func (m *manageMode) handleStage(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *manageMode) handleStage(args *climenu.OptionHandlerArgs) (err error) {
 	var plans []*StagingPlan
 	var streamer *gitutils.Streamer
 
@@ -127,7 +128,7 @@ func (m *manageMode) createDefaultPlan() *StagingPlan {
 }
 
 // handleUnstage unstages all changes
-func (m *manageMode) handleUnstage(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *manageMode) handleUnstage(args *climenu.OptionHandlerArgs) (err error) {
 	var streamer *gitutils.Streamer
 
 	// Check if staging area is empty
@@ -161,7 +162,7 @@ end:
 }
 
 // handleGroup shows AI grouping suggestions
-func (m *manageMode) handleGroup(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *manageMode) handleGroup(args *climenu.OptionHandlerArgs) (err error) {
 	// Check if there are unstaged files
 	if len(m.UnstagedFiles) == 0 && len(m.UntrackedFiles) == 0 {
 		m.Writer.Printf("No unstaged or untracked files to group.\n")
@@ -182,7 +183,7 @@ end:
 }
 
 // handleSplit splits hunks for line-level assignment (Phase 5)
-func (m *manageMode) handleSplit(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *manageMode) handleSplit(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("Split functionality is planned for Phase 5 (MM UI).\n")
 	m.Writer.Printf("This will provide JetBrains-style line-level grouping.\n")
 	return err
@@ -190,11 +191,11 @@ func (m *manageMode) handleSplit(args *cliutil.OptionHandlerArgs) (err error) {
 
 // manageMode wraps BaseMenuMode and embeds modeBase
 type manageMode struct {
-	*cliutil.BaseMenuMode
+	*climenu.BaseMenuMode
 	*modeBase
 }
 
-func (m *manageMode) OnEnter(state cliutil.ModeState) (err error) {
+func (m *manageMode) OnEnter(state climenu.ModeState) (err error) {
 	// Refresh git status
 	err = m.RefreshGitStatus()
 	if err != nil {
@@ -211,7 +212,7 @@ end:
 	return err
 }
 
-func (m *manageMode) OnExit(state cliutil.ModeState) (err error) {
+func (m *manageMode) OnExit(state climenu.ModeState) (err error) {
 	// No cleanup needed
 	return nil
 }

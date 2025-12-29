@@ -1,0 +1,21 @@
+# Squire Menu
+
+- Git status
+  - See breaking changes
+  - See non-breaking changes
+  - See Tests
+    - Stats
+    - Details
+  - See changed error messages
+- Stagging
+  - All in module
+  - For a changeset option
+    - Edit Changeset
+- Unstage all 
+- Changeset Options
+  - Request Option from AI
+  - Edit Changeset Option
+  - Merge Changeset Options
+  - Delete Changeset Option
+  - Choose Changeset Option
+- Commit Changeset

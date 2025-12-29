@@ -40,9 +40,9 @@ const (
 	GitHubRepoURL dt.URL = "https://github.com/mikeschinkel/squire"
 )
 const (
-	InfoURL                       = GitHubRepoURL
-	LogFile           dt.Filename = dt.Filename(string(AppSlug) + ".log")
-	ProjectConfigPath             = "." + ConfigSlug
+	InfoURL           = GitHubRepoURL
+	LogFile           = dt.RelFilepath(string(AppSlug) + ".log")
+	ProjectConfigPath = "." + ConfigSlug
 )
 
 var (

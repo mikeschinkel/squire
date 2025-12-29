@@ -4,22 +4,28 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/squire/squirepkg/gitutils"
 )
 
 // NewMainMode creates the Main mode (F2)
 // This is the starting mode where users commit code
-func NewMainMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) cliutil.MenuMode {
+func NewMainMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) climenu.MenuMode {
 	mode := &mainMode{
 		modeBase: newModeBase(moduleDir),
 	}
 
-	baseMode := cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{
+	baseMode := climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{
 		ModeID:   0,
 		ModeName: "Main",
 		Writer:   writer,
-		MenuOptions: []cliutil.MenuOption{
+		MenuOptions: []climenu.MenuOption{
+			{
+				Name:        "Status",
+				Description: "Display git status",
+				Handler:     mode.handleStatus,
+			},
 			{
 				Name:        "Commit",
 				Description: "Commit staged changes",
@@ -33,8 +39,18 @@ func NewMainMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logge
 	return mode
 }
 
+// handleStatus displays git status (staged/unstaged/untracked files)
+func (m *mainMode) handleStatus(args *climenu.OptionHandlerArgs) (err error) {
+	m.Writer.Printf("\n")
+
+	// Call git status directly and show the familiar output
+	err = m.GitStatus(m.Writer)
+
+	return err
+}
+
 // handleCommit commits the staged changes
-func (m *mainMode) handleCommit(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *mainMode) handleCommit(args *climenu.OptionHandlerArgs) (err error) {
 	var streamer *gitutils.Streamer
 	var message string
 
@@ -79,11 +95,11 @@ end:
 
 // mainMode wraps BaseMenuMode and embeds modeBase
 type mainMode struct {
-	*cliutil.BaseMenuMode
+	*climenu.BaseMenuMode
 	*modeBase
 }
 
-func (m *mainMode) OnEnter(state cliutil.ModeState) (err error) {
+func (m *mainMode) OnEnter(state climenu.ModeState) (err error) {
 	// Refresh git status
 	err = m.RefreshGitStatus()
 	if err != nil {
@@ -100,7 +116,7 @@ end:
 	return err
 }
 
-func (m *mainMode) OnExit(state cliutil.ModeState) (err error) {
+func (m *mainMode) OnExit(state climenu.ModeState) (err error) {
 	// No cleanup needed
 	return nil
 }

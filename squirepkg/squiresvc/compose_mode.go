@@ -4,21 +4,22 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 )
 
 // NewComposeMode creates the Compose mode (F5)
 // Generate and manage commit messages
-func NewComposeMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) cliutil.MenuMode {
+func NewComposeMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) climenu.MenuMode {
 	mode := &composeMode{
 		modeBase: newModeBase(moduleDir),
 	}
 
-	baseMode := cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{
+	baseMode := climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{
 		ModeID:   3,
 		ModeName: "Compose",
 		Writer:   writer,
-		MenuOptions: []cliutil.MenuOption{
+		MenuOptions: []climenu.MenuOption{
 			{
 				Name:        "Staged",
 				Description: "Show staged changes",
@@ -53,7 +54,7 @@ func NewComposeMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Lo
 }
 
 // handleStaged displays staged changes
-func (m *composeMode) handleStaged(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *composeMode) handleStaged(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("\n=== Staged Changes ===\n")
 
 	if len(m.StagedFiles) == 0 {
@@ -72,7 +73,7 @@ end:
 }
 
 // handleGenerate generates a commit message from staged changes
-func (m *composeMode) handleGenerate(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *composeMode) handleGenerate(args *climenu.OptionHandlerArgs) (err error) {
 	// Check if staging area is empty
 	if len(m.StagedFiles) == 0 {
 		m.Writer.Printf("No staged files to analyze.\n")
@@ -93,7 +94,7 @@ end:
 }
 
 // handleList lists all active commit candidates
-func (m *composeMode) handleList(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *composeMode) handleList(args *climenu.OptionHandlerArgs) (err error) {
 	var currentHash string
 
 	m.Writer.Printf("\n=== Commit Candidates ===\n")
@@ -124,14 +125,14 @@ end:
 }
 
 // handleMerge merges multiple candidates (Phase 6)
-func (m *composeMode) handleMerge(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *composeMode) handleMerge(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("Merge functionality is planned for Phase 6 (Polish).\n")
 	m.Writer.Printf("This will allow combining parts of multiple candidates.\n")
 	return err
 }
 
 // handleEdit opens a candidate in $EDITOR
-func (m *composeMode) handleEdit(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *composeMode) handleEdit(args *climenu.OptionHandlerArgs) (err error) {
 	// Check if there are candidates
 	if len(m.ActiveCandidates) == 0 {
 		m.Writer.Printf("No commit candidates to edit.\n")
@@ -152,11 +153,11 @@ end:
 
 // composeMode wraps BaseMenuMode and embeds modeBase
 type composeMode struct {
-	*cliutil.BaseMenuMode
+	*climenu.BaseMenuMode
 	*modeBase
 }
 
-func (m *composeMode) OnEnter(state cliutil.ModeState) (err error) {
+func (m *composeMode) OnEnter(state climenu.ModeState) (err error) {
 	// Refresh git status
 	err = m.RefreshGitStatus()
 	if err != nil {
@@ -173,7 +174,7 @@ end:
 	return err
 }
 
-func (m *composeMode) OnExit(state cliutil.ModeState) (err error) {
+func (m *composeMode) OnExit(state climenu.ModeState) (err error) {
 	// No cleanup needed
 	return nil
 }

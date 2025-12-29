@@ -52,7 +52,7 @@ func (opts *Options) Parse(flags cliutil.Flags) error {
 	}
 
 	opts.OutputPath, err = dt.EnsureFilepath(gruFlags.OutputPath, gru.DefaultOutputFile)
-	if err != nil {
+	if err != nil && !errors.Is(err, dt.ErrFileNotExists) {
 		err = NewErr(ErrInvalidOutputPath, err)
 		goto end
 	}

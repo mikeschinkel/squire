@@ -4,26 +4,22 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 )
 
 // NewExploreMode creates the Explore mode (F3)
 // Read-only exploration of changes
-func NewExploreMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) cliutil.MenuMode {
+func NewExploreMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Logger) climenu.MenuMode {
 	mode := &exploreMode{
 		modeBase: newModeBase(moduleDir),
 	}
 
-	baseMode := cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{
+	baseMode := climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{
 		ModeID:   1,
 		ModeName: "Explore",
 		Writer:   writer,
-		MenuOptions: []cliutil.MenuOption{
-			{
-				Name:        "Status",
-				Description: "Display git status",
-				Handler:     mode.handleStatus,
-			},
+		MenuOptions: []climenu.MenuOption{
 			{
 				Name:        "Breaking",
 				Description: "Show breaking changes",
@@ -47,18 +43,8 @@ func NewExploreMode(moduleDir dt.DirPath, writer cliutil.Writer, logger *slog.Lo
 	return mode
 }
 
-// handleStatus displays git status (staged/unstaged/untracked files)
-func (m *exploreMode) handleStatus(args *cliutil.OptionHandlerArgs) (err error) {
-	m.Writer.Printf("\n")
-
-	// Call git status directly and show the familiar output
-	err = m.GitStatus(m.Writer)
-
-	return err
-}
-
 // handleBreaking displays breaking changes from analysis
-func (m *exploreMode) handleBreaking(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *exploreMode) handleBreaking(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("\n=== Breaking Changes ===\n")
 
 	if m.AnalysisResults == nil {
@@ -75,7 +61,7 @@ end:
 }
 
 // handleOther displays other changes from analysis
-func (m *exploreMode) handleOther(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *exploreMode) handleOther(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("\n=== Other Changes ===\n")
 
 	if m.AnalysisResults == nil {
@@ -92,7 +78,7 @@ end:
 }
 
 // handleTests displays test-related changes
-func (m *exploreMode) handleTests(args *cliutil.OptionHandlerArgs) (err error) {
+func (m *exploreMode) handleTests(args *climenu.OptionHandlerArgs) (err error) {
 	m.Writer.Printf("\n=== Test-Related Changes ===\n")
 
 	if m.AnalysisResults == nil {
@@ -110,11 +96,11 @@ end:
 
 // exploreMode wraps BaseMenuMode and embeds modeBase
 type exploreMode struct {
-	*cliutil.BaseMenuMode
+	*climenu.BaseMenuMode
 	*modeBase
 }
 
-func (m *exploreMode) OnEnter(state cliutil.ModeState) (err error) {
+func (m *exploreMode) OnEnter(state climenu.ModeState) (err error) {
 	// Refresh git status
 	err = m.RefreshGitStatus()
 	if err != nil {
@@ -131,7 +117,7 @@ end:
 	return err
 }
 
-func (m *exploreMode) OnExit(state cliutil.ModeState) (err error) {
+func (m *exploreMode) OnExit(state climenu.ModeState) (err error) {
 	// No cleanup needed
 	return nil
 }

@@ -177,21 +177,23 @@ gru [flags]
       "files": [
         {
           "path": "auth.go",
-          "hunk_headers": [
+          "hunks": [
             {
+              "header": "@@ -10,3 +10,5 @@ func Login()",
+              "context_before": ["func Login() {", "    // TODO"],
+              "context_after": ["}"],
               "old_start": 10,
               "old_count": 3,
               "new_start": 10,
-              "new_count": 5,
-              "header_line": "@@ -10,3 +10,5 @@ func Login()",
-              "context_lines": ["func Login() {", "    // TODO", "}"]
+              "new_count": 5
             }
           ],
           "all_lines": false
         }
       ],
       "suggested": true,
-      "take_number": 1
+      "take_number": 1,
+      "is_default": false
     }
   ],
   "ai_takes": {
@@ -228,21 +230,23 @@ gru [flags]
       "files": [
         {
           "path": "auth.go",
-          "hunk_headers": [
+          "hunks": [
             {
+              "header": "@@ -10,3 +10,5 @@ func Login()",
+              "context_before": ["func Login() {", "    // TODO"],
+              "context_after": ["}"],
               "old_start": 10,
               "old_count": 3,
               "new_start": 10,
-              "new_count": 5,
-              "header_line": "@@ -10,3 +10,5 @@ func Login()",
-              "context_lines": ["func Login() {", "    // TODO", "}"]
+              "new_count": 5
             }
           ],
           "all_lines": false
         }
       ],
       "suggested": false,
-      "take_number": 0
+      "take_number": 0,
+      "is_default": false
     },
     {
       "id": "plan-uuid-2",
@@ -253,21 +257,23 @@ gru [flags]
       "files": [
         {
           "path": "logger.go",
-          "hunk_headers": [
+          "hunks": [
             {
+              "header": "@@ -25,2 +25,3 @@ func Log()",
+              "context_before": ["func Log(msg string) {", "    fmt.Println(msg)"],
+              "context_after": [],
               "old_start": 25,
               "old_count": 2,
               "new_start": 25,
-              "new_count": 3,
-              "header_line": "@@ -25,2 +25,3 @@ func Log()",
-              "context_lines": ["func Log(msg string) {", "    fmt.Println(msg)"]
+              "new_count": 3
             }
           ],
           "all_lines": false
         }
       ],
       "suggested": false,
-      "take_number": 0
+      "take_number": 0,
+      "is_default": false
     }
   ]
 }

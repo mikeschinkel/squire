@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/squire/squirepkg/askai"
 	"github.com/mikeschinkel/squire/squirepkg/gitutils"
@@ -20,25 +21,25 @@ type DirtyRepoModeArgs struct {
 }
 
 // NewDirtyRepoMode creates a menu mode for dirty repository operations
-func NewDirtyRepoMode(args DirtyRepoModeArgs) *cliutil.BaseMenuMode {
+func NewDirtyRepoMode(args DirtyRepoModeArgs) *climenu.BaseMenuMode {
 	streamer := gitutils.NewStreamer(
 		args.Writer.Writer(),
 		args.Writer.ErrWriter(),
 	)
 
-	return cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{
-		MenuOptions: []cliutil.MenuOption{
+	return climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{
+		MenuOptions: []climenu.MenuOption{
 			{
 				Name:        "status",
 				Description: "Run git status to see current changes",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					return streamer.Status(args.ModuleDir)
 				},
 			},
 			{
 				Name:        "stage",
 				Description: "Stage files for this module (excluding nested modules)",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					err := streamer.StageModuleFiles(args.ModuleDir)
 					if err == nil {
 						// Show updated status after staging
@@ -50,7 +51,7 @@ func NewDirtyRepoMode(args DirtyRepoModeArgs) *cliutil.BaseMenuMode {
 			{
 				Name:        "unstage",
 				Description: "Unstage all currently staged files",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					err := streamer.UnstageAll(args.ModuleDir)
 					if err == nil {
 						// Show updated status after unstaging
@@ -62,7 +63,7 @@ func NewDirtyRepoMode(args DirtyRepoModeArgs) *cliutil.BaseMenuMode {
 			{
 				Name:        "generate",
 				Description: "Generate commit message using AI analysis",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					return generateCommitMessageInteractive(args.ModuleDir, args.Writer, args.Logger)
 				},
 			},
@@ -80,14 +81,14 @@ type CommitMessageModeArgs struct {
 }
 
 // NewCommitMessageMode creates a menu mode for commit message operations
-func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
+func NewCommitMessageMode(args CommitMessageModeArgs) *climenu.BaseMenuMode {
 	streamer := gitutils.NewStreamer(args.Writer.Writer(), args.Writer.ErrWriter())
 
-	options := []cliutil.MenuOption{
+	options := []climenu.MenuOption{
 		{
 			Name:        "commit",
 			Description: "Use this commit message and commit the staged changes",
-			Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+			Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 				err := streamer.Commit(args.ModuleDir, *args.Message)
 				if err == nil {
 					// Successful commit - exit the menu
@@ -99,7 +100,7 @@ func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
 		{
 			Name:        "edit",
 			Description: "Edit the commit message in your editor",
-			Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+			Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 				newMessage, err := EditMessage(*args.Message, args.Writer.Writer())
 				if err == nil {
 					*args.Message = newMessage
@@ -110,7 +111,7 @@ func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
 		{
 			Name:        "regenerate",
 			Description: "Ask AI to generate a new commit message",
-			Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+			Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 				agent := askai.NewAgent(askai.AgentArgs{
 					Provider:       askai.NewClaudeCLIProvider(askai.DefaultClaudeCLIProviderArgs()),
 					TimeoutSeconds: 60,
@@ -127,18 +128,18 @@ func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
 	// Add conditional options if analysis results available
 	if args.AnalysisResults != nil {
 		options = append(options,
-			cliutil.MenuOption{
+			climenu.MenuOption{
 				Name:        "analysis",
 				Description: "View full pre-commit analysis report",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					DisplayAnalysisReport(args.AnalysisResults, args.Writer.Writer())
 					return nil
 				},
 			},
-			cliutil.MenuOption{
+			climenu.MenuOption{
 				Name:        "split",
 				Description: "Get AI suggestions to split changes into multiple commits",
-				Handler: func(handlerArgs *cliutil.OptionHandlerArgs) error {
+				Handler: func(handlerArgs *climenu.OptionHandlerArgs) error {
 					err := handleMultiCommitFlowInteractive(args.ModuleDir, args.AnalysisResults, args.Writer)
 					if err == nil {
 						// Multi-commit flow completed - exit this menu
@@ -150,7 +151,7 @@ func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
 		)
 	}
 
-	return cliutil.NewBaseMenuMode(cliutil.BaseMenuModeArgs{MenuOptions: options})
+	return climenu.NewBaseMenuMode(climenu.BaseMenuModeArgs{MenuOptions: options})
 }
 
 // generateCommitMessageInteractive generates a commit message and shows the commit message menu
@@ -179,7 +180,7 @@ func generateCommitMessageInteractive(moduleDir dt.DirPath, writer cliutil.Write
 	}
 
 	// Show commit message menu
-	err = cliutil.ShowMenu(cliutil.MenuArgs{
+	err = climenu.ShowMenu(climenu.MenuArgs{
 		Mode: NewCommitMessageMode(CommitMessageModeArgs{
 			ModuleDir:       moduleDir,
 			Message:         &message,

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mikeschinkel/go-cliutil"
+	"github.com/mikeschinkel/go-cliutil/climenu"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/squire/squirepkg/squirescliui"
 	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
@@ -103,7 +104,7 @@ func (c *NextCmd) Handle() (err error) {
 			// Create mode manager
 			// Note: ModeState is unused since each mode has its own embedded state (modeBase)
 			var state emptyModeState
-			manager := cliutil.NewModeManager(state, c.Writer, c.Logger)
+			manager := climenu.NewModeManager(state, c.Writer, c.Logger)
 
 			// Register modes (each mode creates its own state via modeBase)
 			err = manager.RegisterMode(0, squiresvc.NewMainMode(result.LeafModuleDir, c.Writer, c.Logger))
@@ -133,7 +134,7 @@ func (c *NextCmd) Handle() (err error) {
 			}
 
 			// Run modal menu
-			err = cliutil.ShowMultiModeMenu(cliutil.MultiModeMenuArgs{
+			err = climenu.ShowMultiModeMenu(climenu.MultiModeMenuArgs{
 				Manager: manager,
 				Writer:  c.Writer,
 			})

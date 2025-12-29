@@ -12,7 +12,7 @@ import (
 	"github.com/mikeschinkel/squire/gru/grumod/grucfg"
 )
 
-func showWrror(msg string, err error) {
+func showError(msg string, err error) {
 	errMsg := err.Error()
 	cliutil.Stderrf("%s: %v\n", msg, strings.ReplaceAll(errMsg, "\n", "; "))
 }
@@ -30,13 +30,13 @@ func Run() (result int) {
 
 	err := Initialize()
 	if err != nil {
-		showWrror("Failed initialization", err)
+		showError("Failed initialization", err)
 		return cliutil.ExitInitializeationError
 	}
 
 	opts, args, err = cliutil.ParseOptions(grucfg.NewFlags(), NewOptions())
 	if err != nil {
-		showWrror("Invalid option(s)", err)
+		showError("Invalid option(s)", err)
 		return cliutil.ExitOptionsParseError
 	}
 
@@ -62,12 +62,16 @@ func Run() (result int) {
 		Writer:  writer,
 		Logger:  logger,
 		Options: opts,
+		RunFunc: func(args []string) error {
+			println("Hello world")
+			return nil
+		},
 	})
 
 	err = app.Run(args)
 
 	if err != nil {
-		showWrror("Run error", err)
+		showError("Run error", err)
 		return cliutil.ExitExecutionError
 	}
 	return cliutil.ExitSuccess

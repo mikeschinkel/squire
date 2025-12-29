@@ -1,0 +1,50 @@
+{
+   "module_dir": "/Users/mike/Projects/squire",
+   "git_diff_output": "diff --git a/file1.go b/file1.go\nindex 1234567..abcdefg 100644\n--- a/file1.go\n+++ b/file1.go\n@@ -10,3 +10,5 @@ func Foo() {\n ...",
+   "existing_plans": [
+      {
+         "id": "plan-uuid-1",
+         "name": "Add authentication",
+         "description": "User auth changes",
+         "created": "2025-12-27T10:00:00Z",
+         "modified": "2025-12-27T10:00:00Z",
+         "files": [
+            {
+               "path": "auth.go",
+               "hunks": [
+                  {
+                     "header": "@@ -10,3 +10,5 @@ func Login()",
+                     "context_before": ["func Login() {", "    // TODO"],
+                     "context_after": ["}"],
+                     "old_start": 10,
+                     "old_count": 3,
+                     "new_start": 10,
+                     "new_count": 5        
+                  }
+               ],
+               "all_lines": false
+            }
+         ],
+         "suggested": true,
+         "take_number": 1,
+         "is_default": false
+      }
+   ],
+   "ai_takes": {
+      "cache_key": "abc123def456",
+      "timestamp": "2025-12-27T09:00:00Z",
+      "takes": [
+         {
+            "number": 1,
+            "theme": "By Feature",
+            "groups": [
+               {
+                  "name": "Add authentication",
+                  "rationale": "All auth-related changes",
+                  "files": ["auth.go", "middleware.go"]
+               }
+            ]
+         }
+      ]
+   }
+}
