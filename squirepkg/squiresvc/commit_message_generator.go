@@ -1,4 +1,4 @@
-package commitmsg
+package squiresvc
 
 import (
 	"bytes"
@@ -15,12 +15,12 @@ import (
 var templatesFS embed.FS
 
 // GenerateCommitMessage generates a commit message using the provided AI agent
-func GenerateCommitMessage(ctx context.Context, agent *askai.Agent, req Request) (result Result, err error) {
+func GenerateCommitMessage(ctx context.Context, agent *askai.Agent, req CommitMessageRequest) (result CommitMessageResponse, err error) {
 	var prompt string
 	var response string
 
 	// Build the AI prompt from git data using templates
-	prompt, err = BuildPrompt(req)
+	prompt, err = buildCommitMessagePrompt(req)
 	if err != nil {
 		err = NewErr(ErrCommitMsg, "operation", "build_prompt", err)
 		goto end
@@ -34,7 +34,7 @@ func GenerateCommitMessage(ctx context.Context, agent *askai.Agent, req Request)
 	}
 
 	// Parse the response into commit message components
-	result, err = ParseResponse(response)
+	result, err = parseCommitMessageResult(response)
 	if err != nil {
 		goto end
 	}
@@ -43,8 +43,8 @@ end:
 	return result, err
 }
 
-// BuildPrompt constructs an AI prompt from git information using templates
-func BuildPrompt(req Request) (prompt string, err error) {
+// buildCommitMessagePrompt constructs an AI prompt from git information using templates
+func buildCommitMessagePrompt(req CommitMessageRequest) (prompt string, err error) {
 	var tmplName string
 	var tmpl *template.Template
 	var buf bytes.Buffer
@@ -91,8 +91,8 @@ end:
 	return prompt, err
 }
 
-// ParseResponse parses an AI response into commit message components
-func ParseResponse(response string) (result Result, err error) {
+// parseCommitMessageResult parses an AI response into commit message components
+func parseCommitMessageResult(response string) (result CommitMessageResponse, err error) {
 	var parts []string
 
 	// Store raw response

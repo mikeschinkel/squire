@@ -1,4 +1,4 @@
-package commitmsg
+package squiresvc
 
 import (
 	"errors"
@@ -16,8 +16,8 @@ var (
 	ErrEmptySubject = errors.New("empty commit subject")
 )
 
-// Request contains git-specific information needed to generate a commit message
-type Request struct {
+// CommitMessageRequest contains git-specific information needed to generate a commit message
+type CommitMessageRequest struct {
 	// ModuleDir is the directory of the Go module
 	ModuleDir dt.DirPath
 
@@ -40,8 +40,8 @@ type Request struct {
 	AnalysisResults *precommit.Results
 }
 
-// Result contains the parsed commit message components
-type Result struct {
+// CommitMessageResponse contains the parsed commit message components
+type CommitMessageResponse struct {
 	// Subject is the commit message subject line
 	Subject string
 
@@ -53,7 +53,7 @@ type Result struct {
 }
 
 // Message returns the full commit message (subject + body)
-func (r Result) Message() string {
+func (r CommitMessageResponse) Message() string {
 	if r.Body == "" {
 		return r.Subject
 	}

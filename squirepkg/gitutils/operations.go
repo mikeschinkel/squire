@@ -248,3 +248,22 @@ func FindNestedModules(moduleDir dt.DirPath) (nestedModules []string, err error)
 end:
 	return nestedModules, err
 }
+
+// StageFiles stages the specified files or directories in git
+func StageFiles(moduleDir dt.DirPath, paths ...string) (err error) {
+	var cmd *exec.Cmd
+	var args []string
+
+	if len(paths) == 0 {
+		goto end
+	}
+
+	// Build git add command with all paths
+	args = append([]string{"add"}, paths...)
+	cmd = exec.Command("git", args...)
+	cmd.Dir = string(moduleDir)
+	err = cmd.Run()
+
+end:
+	return err
+}

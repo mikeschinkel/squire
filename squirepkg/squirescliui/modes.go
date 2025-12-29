@@ -7,9 +7,9 @@ import (
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/squire/squirepkg/askai"
-	"github.com/mikeschinkel/squire/squirepkg/commitmsg"
 	"github.com/mikeschinkel/squire/squirepkg/gitutils"
 	"github.com/mikeschinkel/squire/squirepkg/precommit"
+	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
 )
 
 // DirtyRepoModeArgs contains arguments for NewDirtyRepoMode
@@ -115,7 +115,7 @@ func NewCommitMessageMode(args CommitMessageModeArgs) *cliutil.BaseMenuMode {
 					Provider:       askai.NewClaudeCLIProvider(askai.DefaultClaudeCLIProviderArgs()),
 					TimeoutSeconds: 60,
 				})
-				newMessage, err := commitmsg.RegenerateMessage(context.Background(), args.ModuleDir, args.AnalysisResults, agent, args.Writer.Writer())
+				newMessage, err := squiresvc.RegenerateMessage(context.Background(), args.ModuleDir, args.AnalysisResults, agent, args.Writer.Writer())
 				if err == nil {
 					*args.Message = newMessage
 				}
@@ -168,7 +168,7 @@ func generateCommitMessageInteractive(moduleDir dt.DirPath, writer cliutil.Write
 	})
 
 	// Generate commit message with analysis
-	message, analysisResults, err = commitmsg.GenerateWithAnalysis(ctx, commitmsg.GenerateWithAnalysisArgs{
+	message, analysisResults, err = squiresvc.GenerateWithAnalysis(ctx, squiresvc.GenerateWithAnalysisArgs{
 		ModuleDir: moduleDir,
 		Logger:    logger,
 		Writer:    writer.Writer(),

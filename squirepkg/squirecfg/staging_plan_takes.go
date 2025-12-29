@@ -100,6 +100,32 @@ end:
 	return takes, err
 }
 
+// ClearStagingPlanTakes deletes the cached staging plan takes for the given cache key
+func ClearStagingPlanTakes(cacheKey string) (err error) {
+	var cacheFile dt.Filepath
+
+	// Get cache file path
+	cacheFile, err = getAnalysisCacheFile(cacheKey)
+	if err != nil {
+		goto end
+	}
+
+	// Delete the file (ignore error if file doesn't exist)
+	err = cacheFile.Remove()
+	if err != nil {
+		// Check if it's a "file not found" error - that's not really an error
+		exists, existsErr := cacheFile.Exists()
+		if existsErr == nil && !exists {
+			err = nil // File doesn't exist, which is fine
+		} else {
+			err = fmt.Errorf("failed to remove staging plan takes file: %w", err)
+		}
+	}
+
+end:
+	return err
+}
+
 // ComputeAnalysisCacheKey computes a cache key for analysis results
 // Based on the files and their content
 func ComputeAnalysisCacheKey(files []dt.RelFilepath, analysisInput string) (cacheKey string) {

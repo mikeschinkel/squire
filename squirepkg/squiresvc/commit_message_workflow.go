@@ -1,11 +1,9 @@
-package commitmsg
+package squiresvc
 
 import (
 	"context"
 	"io"
 	"log/slog"
-	"os/exec"
-	"strings"
 
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/dtx"
@@ -27,36 +25,29 @@ func GenerateWithAnalysis(ctx context.Context, args GenerateWithAnalysisArgs) (m
 	var repo *gitutils.Repo
 	var stagedFiles []dt.RelFilepath
 	var cacheKey string
-	var cmd *exec.Cmd
 
-	// Check if there are staged changes
-	cmd = exec.Command("git", "diff", "--cached", "--quiet")
-	cmd.Dir = string(args.ModuleDir)
-	if cmd.Run() == nil {
-		// Exit code 0 means no staged changes
+	// Open repo to check for staged changes
+	repo, err = gitutils.Open(args.ModuleDir)
+	if err != nil {
+		err = NewErr(ErrCommitMsg, "operation", "open_repo", err)
+		goto end
+	}
+
+	// Get staged files to check if there are any changes
+	stagedFiles, err = repo.GetStagedFiles(ctx)
+	if err != nil {
+		err = NewErr(ErrCommitMsg, "operation", "get_staged_files", err)
+		goto end
+	}
+
+	if len(stagedFiles) == 0 {
+		// No staged changes
 		dtx.Fprintf(args.Writer, "No staged changes to generate commit message for.\n")
 		goto end
 	}
 
 	// Run pre-commit analysis
 	dtx.Fprintf(args.Writer, "Analyzing staged changes...\n")
-
-	// Open repo to get staged files for cache key
-	repo, err = gitutils.Open(args.ModuleDir)
-	if err != nil {
-		// Not fatal - continue without analysis
-		args.Logger.Warn("Failed to open repo for analysis", "error", err)
-		err = nil
-		goto generate
-	}
-
-	stagedFiles, err = repo.GetStagedFiles(ctx)
-	if err != nil {
-		// Not fatal - continue without analysis
-		args.Logger.Warn("Failed to get staged files", "error", err)
-		err = nil
-		goto generate
-	}
 
 	// Compute cache key and run analysis
 	cacheKey = precommit.ComputeCacheKey(args.ModuleDir, stagedFiles)
@@ -75,7 +66,6 @@ func GenerateWithAnalysis(ctx context.Context, args GenerateWithAnalysisArgs) (m
 		dtx.Fprintf(args.Writer, "%s\n", summary)
 	}
 
-generate:
 	// Generate commit message
 	message, err = GenerateMessage(ctx, args.ModuleDir, analysisResults, args.Agent)
 	if err != nil {
@@ -94,34 +84,33 @@ end:
 
 // GenerateMessage generates a commit message using the AI agent
 func GenerateMessage(ctx context.Context, moduleDir dt.DirPath, analysisResults *precommit.Results, agent *askai.Agent) (message string, err error) {
-	var diff []byte
-	var cmd *exec.Cmd
-	var result Result
+	var repo *gitutils.Repo
+	var diff string
+	var result CommitMessageResponse
 	var branch string
-	var branchBytes []byte
-	var branchErr error
 
-	// Get staged diff
-	cmd = exec.Command("git", "diff", "--cached")
-	cmd.Dir = string(moduleDir)
-	diff, err = cmd.Output()
+	// Open repo
+	repo, err = gitutils.Open(moduleDir)
 	if err != nil {
+		err = NewErr(ErrCommitMsg, "operation", "open_repo", err)
 		goto end
 	}
 
-	// Get current branch
-	cmd = exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	cmd.Dir = string(moduleDir)
-	branchBytes, branchErr = cmd.Output()
-	if branchErr == nil {
-		branch = strings.TrimSpace(string(branchBytes))
+	// Get staged diff using gitutils
+	diff, err = repo.GetStagedDiff(ctx)
+	if err != nil {
+		err = NewErr(ErrCommitMsg, "operation", "get_diff", err)
+		goto end
 	}
 
-	// Generate commit message using commitmsg package
-	result, err = GenerateCommitMessage(ctx, agent, Request{
+	// Get current branch (already populated by Open())
+	branch = string(repo.Branch)
+
+	// Generate commit message using GenerateCommitMessage
+	result, err = GenerateCommitMessage(ctx, agent, CommitMessageRequest{
 		ModuleDir:           moduleDir,
 		Branch:              branch,
-		StagedDiff:          string(diff),
+		StagedDiff:          diff,
 		StagedFiles:         []string{}, // TODO: get list of staged files
 		ConventionalCommits: true,
 		MaxSubjectChars:     50,

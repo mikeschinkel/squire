@@ -88,7 +88,7 @@ func (cf ConfigFile) ContainsPathSegment(ps dt.PathSegment) (contains bool, err 
 func (cf ConfigFile) containsPath(path dt.EntryPath) (contains bool, err error) {
 	var contents []byte
 
-	// Read existing .gitignore if it exists
+	// Read existing file if it exists
 	contents, err = cf.filePath.ReadFile()
 	if os.IsNotExist(err) {
 		err = nil
@@ -99,8 +99,8 @@ func (cf ConfigFile) containsPath(path dt.EntryPath) (contains bool, err error) 
 		goto end
 	}
 
-	// Check if .archive/ is already in .gitignore
-	contains = !cf.containsLine(contents, string(path))
+	// Check if path is in file
+	contains = cf.containsLine(contents, string(path))
 end:
 	return contains, err
 }

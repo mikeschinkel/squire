@@ -700,10 +700,13 @@ func extractTrailingCause(parts []any) (_ []any, err error) {
 	// Count non-sentinel args, treating ErrKV/[]ErrKV/func()ErrKV as single items
 	nonSentinelCount = 0
 	for i := sentinelCount; i < len(parts)-1; i++ {
-		switch parts[i].(type) {
-		case ErrKV, []ErrKV, func() ErrKV:
+		switch v := parts[i].(type) {
+		case ErrKV, func() ErrKV:
 			// These are "atomic" - count as single items
-			nonSentinelCount++
+			nonSentinelCount += 2
+		case []ErrKV:
+			// These are "atomic" - count as single items
+			nonSentinelCount += 2 * len(v)
 		case string:
 			// String key + value = 2 items
 			nonSentinelCount++
