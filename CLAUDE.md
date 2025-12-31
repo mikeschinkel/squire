@@ -43,7 +43,7 @@ You MUST use these packages whenever applicable instead of standard library or t
 
 ## Project Purpose
 
-Squire is a "Swiss Army Knife" CLI for Go development that consolidates many one-off tools into a single, cohesive CLI. It automates tasks currently requiring Makefiles, shell scripts, or manual multi-step workflows. It is NOT a replacement for native `go` commands - it provides higher-level orchestration for multi-repo workflows, development automation, and workspace management.
+Gomion is a "Swiss Army Knife" CLI for Go development that consolidates many one-off tools into a single, cohesive CLI. It automates tasks currently requiring Makefiles, shell scripts, or manual multi-step workflows. It is NOT a replacement for native `go` commands - it provides higher-level orchestration for multi-repo workflows, development automation, and workspace management.
 
 **Primary Goals**:
 1. **Consolidate one-off tools** - Keep all custom Go development tools in one CLI to avoid forgetting about them and accidentally recreating them
@@ -55,7 +55,7 @@ Squire is a "Swiss Army Knife" CLI for Go development that consolidates many one
 **Key Features**:
 - Manage `replace` directives in go.mod for multi-repo development (go.work alone is insufficient in practice)
 - Orchestrate tests/lints/vets across dependency trees
-- Workspace-aware operations via `~/.config/squire/config.json`
+- Workspace-aware operations via `~/.config/gomion/config.json`
 - Replace project-specific Makefiles with consistent CLI commands
 - GitHub workflow management (ensure all repos have test.yml and release.yml)
 - Version tagging integrated with CI/CD (via GitHub Actions)
@@ -108,17 +108,17 @@ go vet ./...
 # Tidy all modules in workspace
 go work sync
 cd cmd && go mod tidy
-cd ../squirepkg && go mod tidy
+cd ../gommod && go mod tidy
 cd ../test && go mod tidy
 ```
 
 ### Running
 ```bash
 # Run from source
-go run ./cmd/main.go [command] [args]
+go run ./cmd/gomion/main.go [command] [args]
 
 # After install
-squire [command] [args]
+gomion [command] [args]
 ```
 
 ## Architecture
@@ -126,20 +126,20 @@ squire [command] [args]
 ### Go Workspace Structure
 This project uses Go workspaces (go.work) with three modules:
 - **cmd/** - Thin binary entry point
-- **squirepkg/** - Core library (importable by other projects)
+- **gompkg/** - Core library (importable by other projects)
 - **test/** - Test module (avoids circular dependencies)
 
 **Important**: Each module has its own go.mod. Use `go work sync` after modifying dependencies.
 
-**Critical Reality**: go.work alone is insufficient for multi-repo development. In practice, you MUST use both go.work AND `replace` directives in go.mod to successfully build projects with local dependencies. Tools that assume otherwise (like x/mod/gohack or standard go work commands) don't handle real-world development workflows. Squire manages both go.work and go.mod replace directives together.
+**Critical Reality**: go.work alone is insufficient for multi-repo development. In practice, you MUST use both go.work AND `replace` directives in go.mod to successfully build projects with local dependencies. Tools that assume otherwise (like x/mod/gohack or standard go work commands) don't handle real-world development workflows. Gomion manages both go.work and go.mod replace directives together.
 
 ### Command Registration Pattern
 
 Commands auto-register via `init()` using the go-cliutil framework:
 
 ```go
-// squirepkg/squirecmds/mycommand_cmd.go
-package squirecmds
+// gommod/gomcmds/mycommand_cmd.go
+package gomioncmds
 
 import "github.com/mikeschinkel/go-cliutil"
 
@@ -170,15 +170,15 @@ func (c *MyCmd) Handle() error {
 1. Commands MUST embed `*cliutil.CmdBase`
 2. Commands MUST implement `Handle() error`
 3. Register in `init()` for auto-discovery
-4. Import squirecmds package with blank import in run.go: `_ "github.com/mikeschinkel/squire/squirepkg/squirecmds"`
+4. Import gomioncmds package with blank import in run.go: `_ "github.com/mikeschinkel/gomion/gompkg/gomioncmds"`
 
 ### Config System (Three Layers, Three Scopes)
 
 **Configuration Scopes**:
-Squire uses a hierarchical config system with three levels:
-1. **User-level** (`~/.config/squire/config.json`) - Workspace definitions, global settings
-2. **Repo-level** (`.squire/config.json` OR `.squire.json` in repo root) - Repo-specific settings
-3. **Module-level** (`.squire/config.json` OR `.squire.json` in module dir) - Module-specific settings
+Gomion uses a hierarchical config system with three levels:
+1. **User-level** (`~/.config/gomion/config.json`) - Workspace definitions, global settings
+2. **Repo-level** (`.gomion/config.json` OR `.gomion.json` in repo root) - Repo-specific settings
+3. **Module-level** (`.gomion/config.json` OR `.gomion.json` in module dir) - Module-specific settings
 
 **Note**: Config file location (directory vs. file) is managed by go-cfgstore and may be standardized as project evolves.
 
@@ -187,17 +187,17 @@ Squire uses a hierarchical config system with three levels:
 **Workspace Configuration**:
 The user-level config defines workspaces. Module information is discovered from go.mod files, not duplicated in config (following "one source of truth" principle).
 
-**"Owned" modules**: Configurable per workspace, repo, and module. Owned modules are those under active development and should be managed by Squire (testing, linting, versioning, replace directive management, etc.).
+**"Owned" modules**: Configurable per workspace, repo, and module. Owned modules are those under active development and should be managed by Gomion (testing, linting, versioning, replace directive management, etc.).
 
-**Layer 1: Raw Config** (squirecfg package)
-- Loaded from user/repo/module `.squire/config.json` files
+**Layer 1: Raw Config** (gomioncfg package)
+- Loaded from user/repo/module `.gomion/config.json` files
 - Versioned schema (`RootConfigV1`)
 - Managed by go-cfgstore (supports multi-location merging)
 
 **Layer 2: Options** (common package)
 - CLI flags parsed into `common.Options`
 - Embeds `cliutil.CLIOptions` for standard flags
-- Transformation: `squirecfg.Options` → `common.Options` via `ParseOptions()`
+- Transformation: `gomioncfg.Options` → `common.Options` via `ParseOptions()`
 
 **Layer 3: Runtime Config** (common package)
 - `common.Config` contains Options + AppInfo + Logger + Writer
@@ -207,13 +207,13 @@ The user-level config defines workspaces. Module information is discovered from 
 ### Execution Flow
 
 ```
-cmd/main.go
-  → squirepkg.RunCLI()
+cmd/gomion/main.go
+  → gommod.RunCLI()
     → Parse CLI args (cliutil.ParseCLIOptions)
-    → Load configs (squirecfg.LoadRootConfigV1)
+    → Load configs (gomioncfg.LoadRootConfigV1)
     → Transform to runtime config
     → Setup logger/writer
-    → squirepkg.Run()
+    → gommod.Run()
       → Create CmdRunner
       → Parse command from args
       → Execute command.Handle()
@@ -221,21 +221,21 @@ cmd/main.go
 
 ### Package Responsibilities
 
-**squirepkg/**
+**gompkg/**
 - `run_cli.go` - Entry point, options/config parsing, initialization
 - `run.go` - Core execution, command runner orchestration
-- `config.go` - Config transformation (squirecfg → common)
+- `config.go` - Config transformation (gomioncfg → common)
 - `parse_options.go` - Options transformation
 
-**squirepkg/common/**
+**gompkg/common/**
 - Shared types: `Config`, `Options`, constants
 - Singleton management: logger, writer
 
-**squirepkg/squirecfg/**
+**gompkg/gomioncfg/**
 - Configuration file structures
 - Loading via go-cfgstore
 
-**squirepkg/squirecmds/**
+**gompkg/gomioncmds/**
 - All command implementations
 - Each command in separate file: `*_cmd.go`
 
@@ -287,7 +287,7 @@ end:
 
 ### Package-Level Singleton Access
 ```go
-// squire/logger.go
+// gomion/logger.go
 logger := common.EnsureLogger()  // Panics if SetLogger() not called
 ```
 
@@ -311,7 +311,7 @@ options := c.Options.(*common.Options)
 ### Blank Import for Side Effects
 Commands auto-register via init():
 ```go
-import _ "github.com/mikeschinkel/squire/squirepkg/squirecmds"
+import _ "github.com/mikeschinkel/gomion/gommod/gomcmds"
 ```
 
 ### Initializer Registry
@@ -337,14 +337,14 @@ Project config → User config → CLI flags
 **Solution**: Embed model for single-file utilities
 - Reference: https://github.com/mikeschinkel/go-doterr
 - Drop in a single .go file from a dependency (no go.mod dependency)
-- Squire can update one or all uses of that file in a workspace
+- Gomion can update one or all uses of that file in a workspace
 - Not commonly used, but essential for specific use cases
 
-**Squire Features**:
-- `squire embed add <url>` - Add a single-file dependency to project
-- `squire embed update <name>` - Update specific embedded file
-- `squire embed update --all` - Update all embedded files in workspace
-- `squire embed list` - Show all embedded dependencies in workspace
+**Gomion Features**:
+- `gomion embed add <url>` - Add a single-file dependency to project
+- `gomion embed update <name>` - Update specific embedded file
+- `gomion embed update --all` - Update all embedded files in workspace
+- `gomion embed list` - Show all embedded dependencies in workspace
 - Tracks original source URL and version for updates
 - Verifies file hasn't been locally modified before updating
 
@@ -362,11 +362,11 @@ Project config → User config → CLI flags
 
 ### ClearPath Coding Style
 
-**Concept**: A coding style that will be enforced via Squire linter
+**Concept**: A coding style that will be enforced via Gomion linter
 
 **Implementation**:
-- `squire lint --clearpath` - Run ClearPath linter
-- ClearPath linter will be developed as part of Squire
+- `gomion lint --clearpath` - Run ClearPath linter
+- ClearPath linter will be developed as part of Gomion
 - Details TBD as style is formalized
 
 **Note**: This is a custom linting feature specific to this coding philosophy.
@@ -374,14 +374,14 @@ Project config → User config → CLI flags
 ### Scaffolding and Templates
 
 **Template System**:
-Squire will support project scaffolding with templates:
+Gomion will support project scaffolding with templates:
 - Template-based .go files that include desired imports
 - Effectively defines starter packages for new projects
 - Avoids duplication (templates include imports, not separate package lists)
 - Interactive TUI for template selection and customization
 
 **Integration with GoReleaser**:
-- `squire scaffold goreleaser` - Interactive setup of .goreleaser.yml
+- `gomion scaffold goreleaser` - Interactive setup of .goreleaser.yml
 - Template-based workflow file generation
 - Workspace-aware defaults
 
@@ -391,8 +391,8 @@ Squire will support project scaffolding with templates:
 
 **Reality of Multi-Repo Development**:
 - go.work alone is insufficient - you MUST also use `replace` directives in go.mod
-- Squire treats go.work and go.mod replace directives as **orthogonal knobs**
-- Squire keeps them consistent with workspace/user/repo/module config
+- Gomion treats go.work and go.mod replace directives as **orthogonal knobs**
+- Gomion keeps them consistent with workspace/user/repo/module config
 
 **Key Operations**:
 - **Enable local dev mode**: Add modules to go.work + add replace directives to relevant go.mod files
@@ -432,42 +432,42 @@ Use GitHub's Go SDK (google/go-github) rather than shelling out to `gh` CLI:
 A workspace is a collection of related Go modules under active development. Setting a workspace allows commands to operate without constant path references.
 
 **Operations**:
-- `squire workspace set <name>` - Set active workspace
-- `squire workspace list` - Show configured workspaces
-- `squire workspace add <name>` - Create new workspace
-- `squire workspace discover` - Discover modules in a directory tree
-- Commands like `squire go test` operate on the active workspace
+- `gomion workspace set <name>` - Set active workspace
+- `gomion workspace list` - Show configured workspaces
+- `gomion workspace add <name>` - Create new workspace
+- `gomion workspace discover` - Discover modules in a directory tree
+- Commands like `gomion go test` operate on the active workspace
 
 ### Language-Aware Commands
 
 **Multi-Language Design**:
-Squire is designed with a "current language" concept to support future language extensions:
+Gomion is designed with a "current language" concept to support future language extensions:
 - Default language: Go (for now)
 - Language can be set per workspace in config
-- Language can be overridden via flag: `squire test --lang=zig` or `squire test --zig`
-- Commands like `squire test`, `squire lint`, `squire build` adapt to current language
+- Language can be overridden via flag: `gomion test --lang=zig` or `gomion test --zig`
+- Commands like `gomion test`, `gomion lint`, `gomion build` adapt to current language
 
 **Command Structure Options**:
 Two possible patterns being considered:
 
 1. **Language-aware top-level commands** (preferred):
    ```bash
-   squire test              # Uses current language (Go by default)
-   squire test --zig        # Override to Zig
-   squire lint              # Uses current language
-   squire build             # Uses current language
+   gomion test              # Uses current language (Go by default)
+   gomion test --zig        # Override to Zig
+   gomion lint              # Uses current language
+   gomion build             # Uses current language
    ```
 
 2. **Language-specific subcommands** (current structure):
    ```bash
-   squire go test           # Go-specific
-   squire go lint           # Go-specific
-   squire zig test          # Zig-specific (future)
+   gomion go test           # Go-specific
+   gomion go lint           # Go-specific
+   gomion zig test          # Zig-specific (future)
    ```
 
 **Why Option 1 Matters**:
 - Allows future support for Zig, Rust, etc. without breaking existing commands
-- Commands remain intuitive: `squire test` just works regardless of language
+- Commands remain intuitive: `gomion test` just works regardless of language
 - Language-specific behavior is abstracted behind common interface
 - Reduces typing and cognitive load
 
@@ -490,7 +490,7 @@ When multi-language support is actually needed (not before):
 
 **Interactive Commands**:
 Some commands are interactive by nature and should offer a TUI:
-- `squire workspace discover` - Interactively select/configure discovered modules
+- `gomion workspace discover` - Interactively select/configure discovered modules
 - GoReleaser scaffolding - Interactive setup of .goreleaser.yml
 - Workspace management (selecting, configuring)
 - Module selection for operations
@@ -504,18 +504,18 @@ Some commands are interactive by nature and should offer a TUI:
 ### Go Experiments Tracking
 
 **Concept**:
-Squire should track Go experiments (GOEXPERIMENT) per workspace/module using directives in go.mod.
+Gomion should track Go experiments (GOEXPERIMENT) per workspace/module using directives in go.mod.
 
 **Directive Format** (in go.mod):
 ```go
 module github.com/example/mymodule
-//squire:goexperiments=arenas,regabiwrappers
+//gomion:goexperiments=arenas,regabiwrappers
 ```
 
 **Important**:
-- This is a **Squire directive**, not a Go toolchain directive
+- This is a **Gomion directive**, not a Go toolchain directive
 - The Go toolchain will ignore these comments
-- Squire will parse and apply these experiments when running commands
+- Gomion will parse and apply these experiments when running commands
 - Two types of experiments:
   1. **Must-have**: Required for code to work (e.g., jsonv2 needs specific experiments)
   2. **Nice-to-have**: Performance/behavior tweaks (e.g., GC experiments)
@@ -530,25 +530,25 @@ module github.com/example/mymodule
 
 Based on project philosophy:
 - Do NOT create commands that duplicate native `go` commands
-- Do NOT add `squire gomod` - use `go mod` directly
+- Do NOT add `gomion gomod` - use `go mod` directly
 - DO add commands that orchestrate multiple `go` commands
 - DO add commands that automate Makefile-style tasks
 - DO add multi-repo orchestration commands
 
 Example of what TO add:
-- `squire go ci` - Run fmt + vet + lint + test (replaces `make ci`)
-- `squire go test-all` - Run tests with coverage + race detection (replaces `make test`)
-- `squire workspace set` - Configure workspace directory
-- `squire workspace discover` - Discover modules in directory tree
-- `squire deps ensure` - Verify all deps have passing tests/lint
-- `squire replace enable` - Enable local dev mode (go.work + replace directives) [placeholder verb]
-- `squire replace disable` - Disable local dev mode (remove overrides) [placeholder verb]
+- `gomion go ci` - Run fmt + vet + lint + test (replaces `make ci`)
+- `gomion go test-all` - Run tests with coverage + race detection (replaces `make test`)
+- `gomion workspace set` - Configure workspace directory
+- `gomion workspace discover` - Discover modules in directory tree
+- `gomion deps ensure` - Verify all deps have passing tests/lint
+- `gomion replace enable` - Enable local dev mode (go.work + replace directives) [placeholder verb]
+- `gomion replace disable` - Disable local dev mode (remove overrides) [placeholder verb]
 
 **Note on Verbs**: Commands like `replace enable/disable` use placeholder verbs. Better verbs will be chosen as the right terminology reveals itself. Consider alternatives like `dev-on/dev-off`, `link/unlink`, `adopt-replaces`, etc. The important thing is the functionality, not the current verb choice.
 
 Example of what NOT to add:
-- `squire go build` - Just use `go build`
-- `squire go mod tidy` - Just use `go mod tidy`
+- `gomion go build` - Just use `go build`
+- `gomion go mod tidy` - Just use `go mod tidy`
 
 ## Important Principles
 
@@ -585,7 +585,7 @@ For projects that produce compiled binaries:
 Considering incorporating functionality from github.com/goyek/goyek:
 - Alternative to Makefiles for task running
 - May integrate or provide similar functionality
-- Evaluate if/how to incorporate into Squire's design
+- Evaluate if/how to incorporate into Gomion's design
 
 ### gomodguard
 Reference: https://github.com/ryancurrah/gomodguard
@@ -605,7 +605,7 @@ Future consideration: Tool to manage dependencies by OSS license
 - Other multi-repo/workspace management tools as they're discovered
 
 ### Tool Consolidation Philosophy
-Squire is designed to consolidate one-off Go development tools into a single CLI:
+Gomion is designed to consolidate one-off Go development tools into a single CLI:
 - Prevents forgetting about previously built tools
 - Avoids accidentally recreating existing functionality
 - Makes tool discovery easier (all commands in one place)
@@ -617,4 +617,4 @@ When adding new functionality, consider:
 3. Would this be useful across multiple projects?
 4. Does this help manage multi-repo workflows?
 
-If yes to any of these, it belongs in Squire.
+If yes to any of these, it belongs in Gomion.

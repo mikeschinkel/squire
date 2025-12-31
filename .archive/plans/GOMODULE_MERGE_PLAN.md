@@ -13,7 +13,7 @@ Both model a Go module (go.mod file), but `retinue.GoModule` is significantly mo
 1. ✅ **Naming:** `gomodutils.Module` (descriptive in context)
 2. ✅ **Graph rename:** `GoModGraph` → `Graph` (simpler in gomodutils context)
 3. ✅ **Graph optional:** Module works without graph for basic parsing/analysis
-4. ✅ **Wrapper:** `retinue.ModuleExt` for Squire-specific release logic
+4. ✅ **Wrapper:** `retinue.ModuleExt` for Gomion-specific release logic
 5. ✅ **Location:** Graph and Repo go in gomodutils package
 6. ✅ **Priority:** Complete BEFORE PRE-commit work begins
 
@@ -96,13 +96,13 @@ Create a unified `gomodutils.Module` that:
 1. Has the rich functionality of `retinue.GoModule`
 2. Keeps the clean helper types from `gomodutils`
 3. Makes graph-awareness **optional** (works standalone or with graph)
-4. Moves Squire-specific logic to `retinue.ModuleExt` wrapper
+4. Moves Gomion-specific logic to `retinue.ModuleExt` wrapper
 
 ### Phase 1: Prepare gomodutils Package
 
 #### 1.1 Add New Fields to gomodutils.Module
 
-**File:** `squirepkg/gomodutils/module.go`
+**File:** `gompkg/gomodutils/module.go`
 
 **Current:**
 ```go
@@ -123,11 +123,11 @@ type Module struct {
     Requires []Require           // Required dependencies
     Replaces []Replace           // Replace directives
 
-    // Graph integration (optional - from squiresvc)
+    // Graph integration (optional - from gompkg)
     Graph    *Graph              // Optional: dependency graph (nil if standalone)
     repo     *Repo               // Optional: parent repository (nil if standalone)
 
-    // Parsed structure (from squiresvc)
+    // Parsed structure (from gompkg)
     modfile  *modfile.File       // Parsed go.mod structure
     loaded   bool                // Whether Load() has been called
 }
@@ -258,7 +258,7 @@ end:
 
 **New:** Method `func (m *Module) AnalyzeStatus() (Status, error)`
 
-**File:** `squirepkg/gomodutils/deps.go`
+**File:** `gompkg/gomodutils/deps.go`
 
 **Rationale:**
 - Aligns with TODO comment in retinue code
@@ -302,7 +302,7 @@ func (m *Module) AnalyzeStatus() (Status, error) {
 
 **New methods to add to gomodutils.Module:**
 
-**File:** `squirepkg/gomodutils/module.go`
+**File:** `gompkg/gomodutils/module.go`
 
 ```go
 // Directory access - NO GRAPH REQUIRED
@@ -374,7 +374,7 @@ func (m *Module) chkSetGraph(funcName string) {
 
 #### 1.7 Add Helper Types from retinue
 
-**File:** `squirepkg/gomodutils/types.go` (new file)
+**File:** `gompkg/gomodutils/types.go` (new file)
 
 ```go
 package gomodutils
@@ -394,8 +394,8 @@ Currently `GoModGraph` and `Repo` are in retinue package, but they're generic go
 
 #### 2.1 Create gomodutils/graph.go
 
-**Move from:** `squirepkg/retinue/go_mod_graph.go`
-**Move to:** `squirepkg/gomodutils/graph.go`
+**Move from:** `gompkg/retinue/go_mod_graph.go`
+**Move to:** `gompkg/gomodutils/graph.go`
 
 **Key changes:**
 1. Rename `GoModGraph` → `Graph`
@@ -405,7 +405,7 @@ Currently `GoModGraph` and `Repo` are in retinue package, but they're generic go
 
 **Example transformation:**
 ```go
-// Before (squiresvc)
+// Before (gompkg)
 type GoModGraph struct {
     modules        []*GoModule
     modulesByPath  map[ModulePath]*GoModule
@@ -438,8 +438,8 @@ func NewGraph() *Graph {
 
 #### 2.2 Create gomodutils/repo.go
 
-**Move from:** `squirepkg/retinue/repo.go`
-**Move to:** `squirepkg/gomodutils/repo.go`
+**Move from:** `gompkg/retinue/repo.go`
+**Move to:** `gompkg/gomodutils/repo.go`
 
 **Key changes:**
 1. Change `*GoModule` → `*Module`
@@ -448,7 +448,7 @@ func NewGraph() *Graph {
 
 **Example transformation:**
 ```go
-// Before (squiresvc)
+// Before (gompkg)
 type Repo struct {
     Dir     RepoDir
     modules []*GoModule
@@ -474,13 +474,13 @@ func (r *Repo) Modules() []*Module {
 #### 3.1 Remove Duplicate Files
 
 **Delete these files:**
-- `squirepkg/retinue/go_module.go` - Module now in gomodutils
-- `squirepkg/retinue/go_mod_graph.go` - Graph now in gomodutils
-- `squirepkg/retinue/repo.go` - Repo now in gomodutils
+- `gompkg/retinue/go_module.go` - Module now in gomodutils
+- `gompkg/retinue/go_mod_graph.go` - Graph now in gomodutils
+- `gompkg/retinue/repo.go` - Repo now in gomodutils
 
-#### 3.2 Create Squire-Specific Wrapper
+#### 3.2 Create Gomion-Specific Wrapper
 
-**File:** `squirepkg/retinue/module_ext.go` (new file)
+**File:** `gompkg/retinue/module_ext.go` (new file)
 
 ```go
 package retinue
@@ -490,21 +490,21 @@ import (
     "fmt"
 
     "github.com/mikeschinkel/go-dt"
-    "github.com/mikeschinkel/squire/squirepkg/gomodutils"
-    "github.com/mikeschinkel/squire/squirepkg/gitutils"
+    "github.com/mikeschinkel/gomion/gompkg/gomodutils"
+    "github.com/mikeschinkel/gomion/gompkg/gitutils"
 )
 
-// ModuleExt extends goutils.Module with Squire-specific release logic
+// ModuleExt extends goutils.Module with Gomion-specific release logic
 type ModuleExt struct {
     *gomodutils.Module
 }
 
-// NewModuleExt wraps a goutils.Module with Squire-specific functionality
+// NewModuleExt wraps a goutils.Module with Gomion-specific functionality
 func NewModuleExt(m *gomodutils.Module) *ModuleExt {
     return &ModuleExt{Module: m}
 }
 
-// IsInFlux checks if module is ready for release (Squire-specific)
+// IsInFlux checks if module is ready for release (Gomion-specific)
 // Returns: (inFlux bool, reason string, error)
 func (m *ModuleExt) IsInFlux(ctx context.Context) (bool, string, error) {
     var err error
@@ -571,7 +571,7 @@ func (m *ModuleExt) getSubmodulePathsToExclude() []dt.PathSegments {
 ```
 
 **Rationale:**
-- `IsInFlux()` requires git integration and is Squire-specific for release planning
+- `IsInFlux()` requires git integration and is Gomion-specific for release planning
 - Keep it in retinue as an extension to avoid coupling gomodutils with gitutils
 - ModuleExt is a thin wrapper - delegates most work to embedded Module
 
@@ -581,7 +581,7 @@ func (m *ModuleExt) getSubmodulePathsToExclude() []dt.PathSegments {
 
 **Before:**
 ```go
-import "github.com/mikeschinkel/squire/squirepkg/squiresvc"
+import "github.com/mikeschinkel/gomion/gommod/gompkg"
 
 m := retinue.NewGoModule(filepath)
 m.SetGraph(graph)
@@ -592,8 +592,8 @@ graph := retinue.NewGoModuleGraph()
 
 **After:**
 ```go
-import "github.com/mikeschinkel/squire/squirepkg/goutils"
-import "github.com/mikeschinkel/squire/squirepkg/squiresvc"
+import "github.com/mikeschinkel/gomion/gommod/goutils"
+import "github.com/mikeschinkel/gomion/gommod/gompkg"
 
 m := gomodutils.NewModule(filepath)
 m.SetGraph(graph)
@@ -618,13 +618,13 @@ inFlux, reason, err := ext.IsInFlux(ctx)
 **Search commands:**
 ```bash
 # Find GoModule references
-grep -r "GoModule" squirepkg/ --include="*.go"
+grep -r "GoModule" gommod/ --include="*.go"
 
 # Find GoModGraph references
-grep -r "GoModGraph" squirepkg/ --include="*.go"
+grep -r "GoModGraph" gommod/ --include="*.go"
 
-# Find squiresvc imports
-grep -r "squirepkg/retinue" squirepkg/ --include="*.go"
+# Find gompkg imports
+grep -r "gompkg/retinue" gommod/ --include="*.go"
 ```
 
 #### 4.2 Update Type References
@@ -638,13 +638,13 @@ grep -r "squirepkg/retinue" squirepkg/ --include="*.go"
 
 **Add imports:**
 ```go
-import "github.com/mikeschinkel/squire/squirepkg/goutils"
+import "github.com/mikeschinkel/gomion/gommod/goutils"
 ```
 
 **Wrap with ModuleExt where needed:**
 ```go
 // If IsInFlux() is called
-import "github.com/mikeschinkel/squire/squirepkg/squiresvc"
+import "github.com/mikeschinkel/gomion/gommod/gompkg"
 
 ext := retinue.NewModuleExt(module)
 inFlux, reason, err := ext.IsInFlux(ctx)
@@ -655,9 +655,9 @@ inFlux, reason, err := ext.IsInFlux(ctx)
 #### 5.1 Move Tests to gomodutils
 
 **Move files:**
-- `squirepkg/retinue/go_module_test.go` → `squirepkg/gomodutils/module_test.go`
-- `squirepkg/retinue/go_mod_graph_test.go` → `squirepkg/gomodutils/graph_test.go`
-- `squirepkg/retinue/repo_test.go` → `squirepkg/gomodutils/repo_test.go`
+- `gompkg/retinue/go_module_test.go` → `gompkg/gomodutils/module_test.go`
+- `gompkg/retinue/go_mod_graph_test.go` → `gompkg/gomodutils/graph_test.go`
+- `gompkg/retinue/repo_test.go` → `gompkg/gomodutils/repo_test.go`
 
 **Update test code:**
 ```go
@@ -682,7 +682,7 @@ func TestModule_Load(t *testing.T) {
 
 #### 5.2 Add Tests for Optional Graph
 
-**New test:** `squirepkg/gomodutils/module_test.go`
+**New test:** `gompkg/gomodutils/module_test.go`
 
 ```go
 func TestModule_StandaloneUsage(t *testing.T) {
@@ -732,7 +732,7 @@ func TestModule_GraphAwareUsage(t *testing.T) {
 
 #### 5.3 Add Tests for ModuleExt
 
-**New test:** `squirepkg/retinue/module_ext_test.go`
+**New test:** `gompkg/retinue/module_ext_test.go`
 
 ```go
 func TestModuleExt_IsInFlux(t *testing.T) {
@@ -806,16 +806,16 @@ func TestModuleExt_IsInFlux(t *testing.T) {
 5. ✅ Update test type references
 6. ✅ Add standalone vs graph-aware tests
 7. ✅ Add ModuleExt tests
-8. ✅ Run tests and fix failures: `go test ./squirepkg/gomodutils/...`
-9. ✅ Run tests and fix failures: `go test ./squirepkg/retinue/...`
+8. ✅ Run tests and fix failures: `go test ./gompkg/gomodutils/...`
+9. ✅ Run tests and fix failures: `go test ./gompkg/retinue/...`
 
 ### Step 6: Verify and Polish (1 hour)
 1. ✅ Run full test suite: `go test ./...`
-2. ✅ Build squire: `go build ./cmd/...`
+2. ✅ Build gomion: `go build ./cmd/...`
 3. ✅ Check for compilation errors
-4. ✅ Search for any remaining GoModule references: `grep -r "GoModule" squirepkg/`
-5. ✅ Search for any remaining GoModGraph references: `grep -r "GoModGraph" squirepkg/`
-6. ✅ Manual smoke test of `squire next` if possible
+4. ✅ Search for any remaining GoModule references: `grep -r "GoModule" gompkg/`
+5. ✅ Search for any remaining GoModGraph references: `grep -r "GoModGraph" gompkg/`
+6. ✅ Manual smoke test of `gomion next` if possible
 
 **Total Estimated Time:** 8-11 hours (about 1-1.5 days)
 
@@ -827,7 +827,7 @@ func TestModuleExt_IsInFlux(t *testing.T) {
 4. ✅ Graph renamed from GoModGraph to Graph
 5. ✅ All existing tests pass
 6. ✅ No duplicate module representations in codebase
-7. ✅ Clean separation: generic (gomodutils) vs Squire-specific (retinue)
+7. ✅ Clean separation: generic (gomodutils) vs Gomion-specific (retinue)
 8. ✅ Follows "one source of truth" principle
 9. ✅ Zero compilation errors
 10. ✅ Ready to begin PRE-commit work
@@ -836,29 +836,29 @@ func TestModuleExt_IsInFlux(t *testing.T) {
 
 ### New Files (Create)
 ```
-squirepkg/gomodutils/
+gompkg/gomodutils/
   └── types.go                  - Type aliases (ModuleKey, ModuleFile, etc.)
 
-squirepkg/retinue/
+gompkg/retinue/
   └── module_ext.go             - ModuleExt wrapper for IsInFlux()
 ```
 
 ### Moved Files
 ```
-squirepkg/retinue/go_mod_graph.go  → squirepkg/gomodutils/graph.go
-squirepkg/retinue/repo.go          → squirepkg/gomodutils/repo.go
-squirepkg/retinue/*_test.go        → squirepkg/gomodutils/*_test.go
+gompkg/retinue/go_mod_graph.go  → gompkg/gomodutils/graph.go
+gompkg/retinue/repo.go          → gompkg/gomodutils/repo.go
+gompkg/retinue/*_test.go        → gompkg/gomodutils/*_test.go
 ```
 
 ### Modified Files
 ```
-squirepkg/gomodutils/
+gompkg/gomodutils/
   ├── module.go                 - Add fields, methods, SetGraph(), guards
   ├── deps.go                   - AnalyzeStatus becomes method
   ├── graph.go (moved)          - Rename GoModGraph → Graph
   ├── repo.go (moved)           - Update Module references
 
-squirepkg/retinue/
+gompkg/retinue/
   ├── engine.go                 - Use gomodutils.Module and Graph
   ├── verdict.go                - Update imports
   └── ... (all files using Module/Graph)
@@ -866,7 +866,7 @@ squirepkg/retinue/
 
 ### Deleted Files
 ```
-squirepkg/retinue/
+gompkg/retinue/
   ├── go_module.go              - Functionality moved to gomodutils
   ├── go_mod_graph.go           - Moved to gomodutils/graph.go
   └── repo.go                   - Moved to gomodutils/repo.go
@@ -885,4 +885,4 @@ squirepkg/retinue/
 - This consolidation **must** be completed before PRE-commit work begins
 - The merged Module type will be used by both existing retinue code AND new precommit analyzers
 - Graph is optional - allows simple use cases without complex dependency tracking
-- ModuleExt wrapper keeps Squire-specific logic separate from generic go.mod utilities
+- ModuleExt wrapper keeps Gomion-specific logic separate from generic go.mod utilities

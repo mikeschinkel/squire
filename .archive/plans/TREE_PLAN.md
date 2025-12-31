@@ -8,10 +8,10 @@ Implement the `requires-tree` command and migrate all commands from legacy FlagD
 ## ✅ Completed Tasks
 
 ### 1. Tree Command Implementation
-- ✅ Read PRD: `docs/squire-cli-tree-command-prd.md`
-- ✅ Added error sentinels to `squirepkg/squirecmds/errors.go`
-- ✅ Created `squirepkg/retinue/tree.go` with ASCII tree rendering
-- ✅ Created `squirepkg/squirecmds/requires_tree_cmd.go` with FlagSet pattern
+- ✅ Read PRD: `docs/gomion-cli-tree-command-prd.md`
+- ✅ Added error sentinels to `gompkg/gomioncmds/errors.go`
+- ✅ Created `gompkg/retinue/tree.go` with ASCII tree rendering
+- ✅ Created `gompkg/gomioncmds/requires_tree_cmd.go` with FlagSet pattern
 - ✅ Implemented all flags: `--show-dirs`, `--show-all`, `--embed`, `--before`, `--after`
 - ✅ Tested markdown embedding - working correctly
 - ✅ Created `ROADMAP.md` to document deferred `--all` flag feature
@@ -67,11 +67,11 @@ func (c *MyCmd) Handle() error {
 ```
 
 **Migrated Commands**:
-- ✅ `squirepkg/squirecmds/requires_tree_cmd.go` - Already used FlagSet pattern
-- ✅ `squirepkg/squirecmds/scan_cmd.go` - Migrated from legacy FlagDefs
+- ✅ `gompkg/gomioncmds/requires_tree_cmd.go` - Already used FlagSet pattern
+- ✅ `gompkg/gomioncmds/scan_cmd.go` - Migrated from legacy FlagDefs
   - Changed: `c.continueOnErr` → `*scanOpts.ContinueOnErr` (lines 86, 144, 172)
   - Removed: Command struct field `continueOnErr`
-- ✅ `squirepkg/squirecmds/requires_list_cmd.go` - Migrated from legacy FlagDefs
+- ✅ `gompkg/gomioncmds/requires_list_cmd.go` - Migrated from legacy FlagDefs
   - Changed: `c.format` → `*requiresListOpts.Format`
   - Removed: Command struct field `format`
 
@@ -88,19 +88,19 @@ func (c *MyCmd) Handle() error {
 **What to test**:
 ```bash
 # 1. Main help should show clean command list (no command-specific flags)
-./bin/squire help
+./bin/gomion help
 
 # 2. Command help should consistently show "OPTIONS:" header
-./bin/squire help scan
-./bin/squire help init
-./bin/squire help requires-list
-./bin/squire help requires-tree
+./bin/gomion help scan
+./bin/gomion help init
+./bin/gomion help requires-list
+./bin/gomion help requires-tree
 
 # 3. Test all flags work correctly
-./bin/squire scan --continue .
-./bin/squire requires-list --format=json .
-./bin/squire requires-tree --show-dirs .
-./bin/squire requires-tree --embed=/tmp/test.md --before .
+./bin/gomion scan --continue .
+./bin/gomion requires-list --format=json .
+./bin/gomion requires-tree --show-dirs .
+./bin/gomion requires-tree --embed=/tmp/test.md --before .
 ```
 
 **Expected results**:
@@ -131,13 +131,13 @@ func (c *MyCmd) Handle() error {
 
 ## 🔧 Key Files Modified
 
-### In squire repo:
-- `squirepkg/squirecmds/errors.go` - Added tree error sentinels
-- `squirepkg/retinue/tree.go` - Tree rendering implementation
-- `squirepkg/squirecmds/requires_tree_cmd.go` - New tree command
-- `squirepkg/squirecmds/scan_cmd.go` - Migrated to FlagSet
-- `squirepkg/squirecmds/requires_list_cmd.go` - Migrated to FlagSet
-- `squirepkg/squirecmds/help_cmd.go` - Fixed for updated cliutil API
+### In gomion repo:
+- `gompkg/gomioncmds/errors.go` - Added tree error sentinels
+- `gompkg/retinue/tree.go` - Tree rendering implementation
+- `gompkg/gomioncmds/requires_tree_cmd.go` - New tree command
+- `gompkg/gomioncmds/scan_cmd.go` - Migrated to FlagSet
+- `gompkg/gomioncmds/requires_list_cmd.go` - Migrated to FlagSet
+- `gompkg/gomioncmds/help_cmd.go` - Fixed for updated cliutil API
 - `ROADMAP.md` - Created to track features
 
 ### In go-cliutil repo:

@@ -1,8 +1,8 @@
-# Squire CLI – Phase 2 PRD
+# Gomion CLI – Phase 2 PRD
 
 **Phase:** 2 – Module Discovery & Dependency Ordering  
 **Status:** Draft  
-**Owner:** Mike / Squire CLI  
+**Owner:** Mike / Gomion CLI  
 **Predecessor:** v0 PRD (scan + init + config)  
 **Date:** 2025-12-07
 
@@ -13,23 +13,23 @@ Before starting you MOST read (or have read) <repo_root>/CLAUDE.md and then you 
 
 ## 1. Purpose & Scope
 
-Phase 2 adds **module discovery** and **dependency-safe ordering** across the Squire universe.
+Phase 2 adds **module discovery** and **dependency-safe ordering** across the Gomion universe.
 
-The goal is to give Squire an internal, well-defined way to:
+The goal is to give Gomion an internal, well-defined way to:
 
-1. Discover all Go modules that Squire cares about, using:
-   - existing `.squire/config.json` (from Phase 1 / v0), and
+1. Discover all Go modules that Gomion cares about, using:
+   - existing `.gomion/config.json` (from Phase 1 / v0), and
    - each module's `go.mod`.
 2. Build an in-memory view of:
    - what modules exist,
    - what kind of modules they are (lib / cmd / test),
-   - which other Squire-managed modules they depend on.
+   - which other Gomion-managed modules they depend on.
 3. Produce a **dependency-safe ordering** of those modules so that:
    - if module B depends on module A, A will always appear **before** B in the ordered list.
 
 Phase 2 **does not** implement tagging, releases, changelogs, universes, or cross-repo orchestration. It only supplies the core module + dependency model and ordering that future phases will build on.
 
-All public types and functions described here live in the existing **`squirepkg`** package (no new top-level package, no `/internal`).
+All public types and functions described here live in the existing **`gompkg`** package (no new top-level package, no `/internal`).
 
 ---
 
@@ -37,14 +37,14 @@ All public types and functions described here live in the existing **`squirepkg`
 
 Phase 1/v0 established:
 
-- `squire scan` to discover Go modules and `squire init` to generate `.squire/config.json` per repo.
-- `.squire/config.json` records per-module metadata such as:
+- `gomion scan` to discover Go modules and `gomion init` to generate `.gomion/config.json` per repo.
+- `.gomion/config.json` records per-module metadata such as:
   - relative directory (`./`, `./cmd`, `./test`, etc.),
   - human-readable name,
   - roles (e.g. `lib`, `cli`, `test`).
 - An ephemeral file such as `go.mod.files.txt` **may** have been used at init-time but is not part of the long-term API or data model.
 
-Squire now needs to understand **how modules depend on each other** in order to:
+Gomion now needs to understand **how modules depend on each other** in order to:
 
 - reason about **safe commit / release order** for multi-repo setups,
 - support future features like release planning, drop-in updates, and multi-repo orchestration.
@@ -56,14 +56,14 @@ This PRD focuses on defining **in-memory types and behavior** for module discove
 ## 3. Goals
 
 1. **Canonical module model**  
-   Define a `Module` type in `squirepkg` that represents a Squire-managed Go module and captures:
+   Define a `Module` type in `gompkg` that represents a Gomion-managed Go module and captures:
    - location,
    - kind (lib / cmd / test),
    - whether it is considered versioned,
-   - its dependencies on other Squire-managed modules.
+   - its dependencies on other Gomion-managed modules.
 
 2. **Module aggregation**  
-   Define a `ModuleSet` type in `squirepkg` that aggregates a collection of `Module` values and provides:
+   Define a `ModuleSet` type in `gompkg` that aggregates a collection of `Module` values and provides:
    - discovery from a root directory,
    - accessors and ordering operations.
 
@@ -77,10 +77,10 @@ This PRD focuses on defining **in-memory types and behavior** for module discove
    - all other modules are considered versioned (for now).
 
 5. **No config schema changes required**  
-   Phase 2 must work with existing `.squire/config.json` files created by v0. It may **derive** additional information (e.g. `ModulePath`) from `go.mod`, but does not persist it.
+   Phase 2 must work with existing `.gomion/config.json` files created by v0. It may **derive** additional information (e.g. `ModulePath`) from `go.mod`, but does not persist it.
 
 6. **JSON-only, no TOML/YAML**  
-   All persistent config remains JSON (`.squire/config.json`) using only Go's standard library. TOML/YAML may be considered later under build tags, but are out of scope here.
+   All persistent config remains JSON (`.gomion/config.json`) using only Go's standard library. TOML/YAML may be considered later under build tags, but are out of scope here.
 
 ---
 
@@ -92,43 +92,43 @@ The following are explicitly **out of scope** for Phase 2:
    No `git tag`, `git push`, or release-creation behavior. The output of Phase 2 is **read-only** information about modules and their ordering.
 
 2. **Changelog or annotation system**  
-   No `.squire/changelog/` or release-note modeling in this phase.
+   No `.gomion/changelog/` or release-note modeling in this phase.
 
 3. **Universe / multi-root orchestration UX**  
-   No `squire each` or user-facing universe commands. Phase 2 only needs enough to work from a given root directory and the repos Squire already considers "attached".
+   No `gomion each` or user-facing universe commands. Phase 2 only needs enough to work from a given root directory and the repos Gomion already considers "attached".
 
 4. **Config schema extensions**  
-   No new required fields in `.squire/config.json`. Future fields such as `"versioned": false` may be added later as overrides, but are not required for Phase 2.
+   No new required fields in `.gomion/config.json`. Future fields such as `"versioned": false` may be added later as overrides, but are not required for Phase 2.
 
 5. **Public release of dependency-ordering CLI**  
-   A debug CLI command (e.g. `squire deps order`) is optional. The primary deliverable is the **library API** in `squirepkg` plus tests.
+   A debug CLI command (e.g. `gomion deps order`) is optional. The primary deliverable is the **library API** in `gompkg` plus tests.
 
 6. **Using `internal` packages**  
-   Do not introduce new `/internal` packages in Phase 2. The API lives in `squirepkg` and can later be refactored if needed.
+   Do not introduce new `/internal` packages in Phase 2. The API lives in `gompkg` and can later be refactored if needed.
 
 ---
 
 ## 5. Terminology
 
-- **Module** – a Go module with its own `go.mod` file that Squire knows about.
-- **ModuleKind** – classification of a module for Squire's purposes:
+- **Module** – a Go module with its own `go.mod` file that Gomion knows about.
+- **ModuleKind** – classification of a module for Gomion's purposes:
   - `LibModuleKind` – general library module.
   - `CmdModuleKind` – command module (typically under `cmd/` with a `main` package).
   - `TestModuleKind` – test/support module (typically under `test/` or `tests/`).
-- **Versioned module** – a module that Squire considers as a potential **tagged** unit for future releases.
-- **Non-versioned ("private") module** – a module that Squire generally does not treat as an independently versioned artifact (e.g. tests).
+- **Versioned module** – a module that Gomion considers as a potential **tagged** unit for future releases.
+- **Non-versioned ("private") module** – a module that Gomion generally does not treat as an independently versioned artifact (e.g. tests).
 - **ModuleSet** – an in-memory collection of `Module` values plus indexes for dependency reasoning.
 
 ---
 
 ## 6. Data Model
 
-All types below live in `squirepkg`.
+All types below live in `gompkg`.
 
 ### 6.1 ModuleKind
 
 ```go
-// ModuleKind classifies the role of a module in Squire's universe.
+// ModuleKind classifies the role of a module in Gomion's universe.
 type ModuleKind int
 
 const (
@@ -148,7 +148,7 @@ const (
 ### 6.2 Module
 
 ```go
-// Module represents a single Go module that Squire knows about.
+// Module represents a single Go module that Gomion knows about.
 // It includes its location, semantic kind, and dependencies on other modules.
 type Module struct {
     // RepoRoot is the filesystem root for the repo containing this module.
@@ -170,10 +170,10 @@ type Module struct {
     // Phase 2 computes this via heuristics (see §7); no config override yet.
     Versioned bool
 
-    // Requires lists the Go module paths of Squire-managed modules that
+    // Requires lists the Go module paths of Gomion-managed modules that
     // this module depends on (from its go.mod "require" directives).
     //
-    // Only requires that are themselves known Squire-managed modules are included.
+    // Only requires that are themselves known Gomion-managed modules are included.
     Requires []string
 }
 ```
@@ -181,7 +181,7 @@ type Module struct {
 ### 6.3 ModuleSet
 
 ```go
-// ModuleSet represents a collection of Modules Squire knows about,
+// ModuleSet represents a collection of Modules Gomion knows about,
 // along with internal indexes for dependency reasoning.
 type ModuleSet struct {
     Modules []*Module
@@ -205,25 +205,25 @@ type ModuleSet struct {
 **Signature (initial):**
 
 ```go
-// DiscoverModules discovers Squire-managed modules starting at rootDir.
+// DiscoverModules discovers Gomion-managed modules starting at rootDir.
 //
-// rootDir is typically a path inside a "root repo" that Squire knows how
+// rootDir is typically a path inside a "root repo" that Gomion knows how
 // to locate based on existing behavior (Phase 1 / v0). DiscoverModules
-// uses .squire/config.json plus each module's go.mod to build a ModuleSet.
+// uses .gomion/config.json plus each module's go.mod to build a ModuleSet.
 func DiscoverModules(rootDir string) (*ModuleSet, error)
 ```
 
 **Inputs:**
 
-- `rootDir` – any directory under a Squire-managed repo.
-- `.squire/config.json` – per-repo configuration created by `squire init`.
+- `rootDir` – any directory under a Gomion-managed repo.
+- `.gomion/config.json` – per-repo configuration created by `gomion init`.
 - `go.mod` – per-module go.mod files referenced by the config.
 
 **Required behavior:**
 
-1. Locate the **root repo** containing `rootDir` using the same logic v0 uses (e.g. search up for `.git` and `.squire`).
+1. Locate the **root repo** containing `rootDir` using the same logic v0 uses (e.g. search up for `.git` and `.gomion`).
 
-2. Read that repo's `.squire/config.json`.
+2. Read that repo's `.gomion/config.json`.
 
 3. For each module entry in config:
    - Determine its module directory based on `RelDir`.
@@ -244,14 +244,14 @@ func DiscoverModules(rootDir string) (*ModuleSet, error)
    - For each module, read its `go.mod` again (or reuse the parsed representation) and inspect `require` directives.
    - For each `require` module path `P`:
      - If `P` exists in `byPath`, append `P` to `module.Requires`.
-   - Ignore requires not known/managed by Squire.
+   - Ignore requires not known/managed by Gomion.
 
 6. Return a populated `*ModuleSet`.
 
 **Notes:**
 
-- `go.mod.files.txt` is **not** used. It was an ephemeral helper for `squire init` and must not be required for Phase 2.
-- No new fields are written back to `.squire/config.json`.
+- `go.mod.files.txt` is **not** used. It was an ephemeral helper for `gomion init` and must not be required for Phase 2.
+- No new fields are written back to `.gomion/config.json`.
 - Any I/O errors (missing `go.mod`, malformed config, etc.) should produce descriptive errors.
 
 ### 7.2 Dependency-safe ordering – `OrderModules`
@@ -271,7 +271,7 @@ func (ms *ModuleSet) OrderModules() ([]*Module, error)
 - Implements a dependency-first ordering over the modules in `ModuleSet`.
 - If module B lists module A in its `Dependencies`, A must appear before B in the returned slice.
 - All modules in `ms.Modules` must appear exactly once in the returned slice.
-- If a dependency cycle is detected among Squire-managed modules, return an error.
+- If a dependency cycle is detected among Gomion-managed modules, return an error.
 
 **Algorithm sketch (informal):**
 
@@ -297,7 +297,7 @@ func (ms *ModuleSet) OrderModules() ([]*Module, error)
 An optional debug-only CLI command can be added to help validate implementation and aid manual workflows:
 
 ```bash
-squire deps order [<dir>]
+gomion deps order [<dir>]
 ```
 
 **Semantics:**
@@ -350,7 +350,7 @@ Phase 2 should be covered by unit tests and small fixture repositories.
 
 ### 9.1 Fixture layout
 
-Create one or more test fixtures representing a small multi-repo Squire universe, e.g.:
+Create one or more test fixtures representing a small multi-repo Gomion universe, e.g.:
 
 - `testdata/universe/` with subdirectories:
   - `go-doterr/`
@@ -361,7 +361,7 @@ Create one or more test fixtures representing a small multi-repo Squire universe
 Each fixture repo should contain:
 
 - A minimal `.git` placeholder (if required by root-detection logic).
-- `.squire/config.json` consistent with Phase 1 behavior.
+- `.gomion/config.json` consistent with Phase 1 behavior.
 - One or more `go.mod` files with plausible dependencies among them.
 
 ### 9.2 Tests
@@ -371,7 +371,7 @@ Each fixture repo should contain:
      - discover the expected number of modules,
      - correctly set `RepoRoot`, `RelDir`, `ModulePath`, and `Kind`,
      - correctly set `Versioned` based on heuristics,
-     - include only internal Squire modules in `Dependencies`.
+     - include only internal Gomion modules in `Dependencies`.
 
 2. **Ordering correctness**
    - Given the `ModuleSet` from a fixture universe, `OrderModules` should:
@@ -391,7 +391,7 @@ Each fixture repo should contain:
 Phase 2 is intentionally minimal but is designed to support future phases:
 
 1. **Config overrides for Versioned**  
-   Later, `.squire/config.json` can grow an optional `versioned` boolean per module. The logic for `Versioned` would become:
+   Later, `.gomion/config.json` can grow an optional `versioned` boolean per module. The logic for `Versioned` would become:
    - compute heuristic (test → false, others → true), then
    - if `versioned` is present in config, override the heuristic.
 
@@ -408,7 +408,7 @@ Phase 2 is intentionally minimal but is designed to support future phases:
    Once universes are formally modeled, `DiscoverModules` may grow a variant that spans multiple root repos, but the basic `Module` and `ModuleSet` types should remain valid.
 
 5. **ClearPath & lint integration**  
-   Future ClearPath linters or style tools may reuse the same module discovery logic, keeping module understanding centralized in `squirepkg`.
+   Future ClearPath linters or style tools may reuse the same module discovery logic, keeping module understanding centralized in `gompkg`.
 
 ---
 
@@ -416,13 +416,13 @@ Phase 2 is intentionally minimal but is designed to support future phases:
 
 Phase 2 is complete when:
 
-1. `squirepkg` exposes `ModuleKind`, `Module`, `ModuleSet`, `DiscoverModules`, and `OrderModules` as described.
+1. `gompkg` exposes `ModuleKind`, `Module`, `ModuleSet`, `DiscoverModules`, and `OrderModules` as described.
 2. The implementation:
-   - correctly discovers modules using existing `.squire/config.json` and `go.mod` files,
+   - correctly discovers modules using existing `.gomion/config.json` and `go.mod` files,
    - classifies modules into lib/cmd/test and sets `Versioned` via the agreed heuristic,
-   - computes `Dependencies` based only on Squire-managed modules.
+   - computes `Dependencies` based only on Gomion-managed modules.
 3. `OrderModules` returns a valid dependency-safe order in realistic fixture universes and detects cycles.
 4. Tests cover the behaviors listed in §9 and pass reliably.
-5. No changes are required to existing `.squire/config.json` files created by Phase 1.
-6. (Optional) `squire deps order` exists as a debug command and produces intelligible output for a multi-repo fixture universe.
+5. No changes are required to existing `.gomion/config.json` files created by Phase 1.
+6. (Optional) `gomion deps order` exists as a debug command and produces intelligible output for a multi-repo fixture universe.
 

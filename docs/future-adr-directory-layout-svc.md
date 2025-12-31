@@ -22,7 +22,7 @@ Constraints and preferences:
 Use **`appsvc`** (suffix `svc`) as the package for the app’s core workflows/policy/orchestration logic that commands invoke.
 
 ```
-app - Name of app, e.g. `gomnion` or `squire`
+app - Name of app, e.g. `gomnion` or `gomion`
 ├── cmd — Executable lives here
 ├── test — Integration tests live here
 └── apppkg — Reusable package
@@ -36,7 +36,7 @@ app - Name of app, e.g. `gomnion` or `squire`
 ## Rationale
 
 * `svc` matches the intended layering: **commands → services**.
-* `svc` reads cleanly when concatenated (`squiresvc`, `gomionsvc`) and avoids the unintended “kingdom”/“dominion” parsing that occurs with `dom`.
+* `svc` reads cleanly when concatenated (`gomionsvc`, `gomionsvc`) and avoids the unintended “kingdom”/“dominion” parsing that occurs with `dom`.
 * `svc` avoids the “business” connotation of `biz` while still conveying “operations the tool provides.”
 * The package can function as a pragmatic boundary to prevent cycles; when code is clearly reusable or cross-cutting, it can be factored into dedicated packages without changing the overall convention.
 

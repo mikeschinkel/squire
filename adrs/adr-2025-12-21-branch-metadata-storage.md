@@ -92,7 +92,7 @@ Characteristics:
 Example (illustrative):
 
 ```ini
-[squire.dependency "github.com/example/foo"]
+[gomion.dependency "github.com/example/foo"]
 remote = origin
 branch = dev
 path = ../foo

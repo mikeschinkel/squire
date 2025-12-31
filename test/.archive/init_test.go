@@ -14,8 +14,8 @@ import (
 	"github.com/mikeschinkel/go-dt/appinfo"
 	"github.com/mikeschinkel/go-fsfix"
 	"github.com/mikeschinkel/go-testutil"
-	"github.com/mikeschinkel/squire/squirepkg/squirecfg"
-	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
+	"github.com/mikeschinkel/gomion/gommod/gomcfg"
+	"github.com/mikeschinkel/gomion/gommod/gompkg"
 )
 
 // TestInitRepos_ScanDirectory tests initializing repos by scanning a directory
@@ -23,7 +23,7 @@ func TestInitRepos_ScanDirectory(t *testing.T) {
 	var tf *fsfix.RootFixture
 	var repo1 *fsfix.RepoFixture
 	var repo2 *fsfix.RepoFixture
-	var result *squiresvc.InitReposResult
+	var result *gompkg.InitReposResult
 	var err error
 	var writer *testutil.BufferedWriter
 	var logger *slog.Logger
@@ -74,7 +74,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Initialize repos
-	result, err = squiresvc.Init(squiresvc.InitArgs{
+	result, err = gompkg.Init(gompkg.InitArgs{
 		FilePath: "",
 		DirPath:  string(tf.Dir()),
 		Writer:   writer,
@@ -103,31 +103,31 @@ go 1.25.3
 		}
 	}
 
-	// Verify .squire directory was created for repo1
-	squirePath := dt.DirPathJoin(repo1.Dir(), ".squire")
-	squireExists, _ := squirePath.Exists()
-	if !squireExists {
-		t.Errorf(".squire directory not created for repo1")
+	// Verify .gomion directory was created for repo1
+	gomionPath := dt.DirPathJoin(repo1.Dir(), ".gomion")
+	gomionExists, _ := gomionPath.Exists()
+	if !gomionExists {
+		t.Errorf(".gomion directory not created for repo1")
 	}
 
 	// Verify config file exists in repo1
-	configPath := dt.FilepathJoin(squirePath, "config.json")
+	configPath := dt.FilepathJoin(gomionPath, "config.json")
 	configExists, _ := configPath.Exists()
 	if !configExists {
-		t.Errorf("config.json not created in repo1/.squire/")
+		t.Errorf("config.json not created in repo1/.gomion/")
 	}
 
-	// Verify .squire directory was created for repo2
-	squirePath = dt.DirPathJoin(repo2.Dir(), ".squire")
-	squireExists, _ = squirePath.Exists()
-	if !squireExists {
-		t.Errorf(".squire directory not created for repo2")
+	// Verify .gomion directory was created for repo2
+	gomionPath = dt.DirPathJoin(repo2.Dir(), ".gomion")
+	gomionExists, _ = gomionPath.Exists()
+	if !gomionExists {
+		t.Errorf(".gomion directory not created for repo2")
 	}
 
 	// Load repo2 config using cfgstore
-	store = squiresvc.ProjectConfigStore(repo2.Dir())
+	store = gompkg.ProjectConfigStore(repo2.Dir())
 
-	var repoConfig squirecfg.RepoConfig
+	var repoConfig gomcfg.RepoConfig
 	err = store.LoadJSON(&repoConfig)
 	if err != nil {
 		t.Fatalf("failed to load repo2 config: %v", err)
@@ -148,7 +148,7 @@ go 1.25.3
 	}
 
 	// Verify cmd module has correct role
-	if repoConfig.Modules["./cmd"].Kinds[0] != squiresvc.ExeModuleKind {
+	if repoConfig.Modules["./cmd"].Kinds[0] != gompkg.ExeModuleKind {
 		t.Errorf("expected cmd module role 'cli', got %q", repoConfig.Modules["./cmd"].Kinds[0])
 	}
 }
@@ -159,7 +159,7 @@ func TestInitRepos_ReadFile(t *testing.T) {
 	var repo1 *fsfix.RepoFixture
 	var repo2 *fsfix.RepoFixture
 	var inputFile *fsfix.FileFixture
-	var result *squiresvc.InitReposResult
+	var result *gompkg.InitReposResult
 	var err error
 	var writer *mockWriter
 	var logger *slog.Logger
@@ -205,7 +205,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Initialize repos from file
-	result, err = squiresvc.InitializeRepos(&squiresvc.InitializeRepoArgs{
+	result, err = gompkg.InitializeRepos(&gompkg.InitializeRepoArgs{
 		FilePath: string(inputFile.Filepath),
 		DirArg:   "",
 		AppInfo:  testAppInfo(),
@@ -231,8 +231,8 @@ go 1.25.3
 func TestInitRepos_AlreadyManaged(t *testing.T) {
 	var tf *fsfix.RootFixture
 	var repo *fsfix.RepoFixture
-	var squireDir *fsfix.DirFixture
-	var result *squiresvc.InitReposResult
+	var gomionDir *fsfix.DirFixture
+	var result *gompkg.InitReposResult
 	var err error
 	var writer *mockWriter
 	var logger *slog.Logger
@@ -245,7 +245,7 @@ func TestInitRepos_AlreadyManaged(t *testing.T) {
 	tf = fsfix.NewRootFixture("init-already-managed-test")
 	defer tf.Cleanup()
 
-	// Create repo with existing .squire/config.json
+	// Create repo with existing .gomion/config.json
 	repo = tf.AddRepoFixture(t, "repo", nil)
 	repo.AddFileFixture(t, "go.mod", &fsfix.FileFixtureArgs{
 		Content: `module github.com/test/repo
@@ -254,9 +254,9 @@ go 1.25.3
 `,
 	})
 
-	// Create .squire directory and config
-	squireDir = repo.AddDirFixture(t, ".squire", nil)
-	squireDir.AddFileFixture(t, "config.json", &fsfix.FileFixtureArgs{
+	// Create .gomion directory and config
+	gomionDir = repo.AddDirFixture(t, ".gomion", nil)
+	gomionDir.AddFileFixture(t, "config.json", &fsfix.FileFixtureArgs{
 		Content: `{
   "modules": {
     "./": {
@@ -277,7 +277,7 @@ go 1.25.3
 	logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
 	// Try to initialize already managed repo
-	result, err = squiresvc.InitializeRepos(&squiresvc.InitializeRepoArgs{
+	result, err = gompkg.InitializeRepos(&gompkg.InitializeRepoArgs{
 		FilePath: "",
 		DirArg:   string(tf.Dir()),
 		AppInfo:  testAppInfo(),
@@ -380,7 +380,7 @@ func (w *mockWriter) ContainsOutput(substr string) bool {
 // testAppInfo returns a test AppInfo
 func testAppInfo() appinfo.AppInfo {
 	return appinfo.New(appinfo.Args{
-		Name:    "squire",
+		Name:    "gomion",
 		Version: "0.0.0-test",
 	})
 }

@@ -1,4 +1,4 @@
-# Squire
+# Gomion **/ˈɡɒm.jən/** —
 
 > A Multi-purpose CLI _(a.k.a. a "Swiss Army Knife")_ CLI for Go developers that consolidates project tooling, multi-repo workflows, and one-off utilities into a single, cohesive command-line experience.
 
@@ -7,26 +7,41 @@
 
 ---
 
-## What is Squire?
+## What is Gomion?
 
-Squire is a command-line tool designed to solve the daily friction points of Go development across multiple repositories and modules. It replaces repetitive `Makefiles`, manages the reality of multi-repo development where `go.work` alone isn't enough, and brings together scattered one-off tools into one discoverable place.
+Gomion is a command-line tool designed to solve the daily friction points of Go development across multiple repositories and modules. It replaces repetitive `Makefiles`, manages the reality of multi-repo development where `go.work` alone isn't enough, and brings together scattered one-off tools into one discoverable place.
 
 **Core Philosophy**: Only add commands that orchestrate multiple steps or automate workflows that would otherwise require a `Makefile` or shell scripts. Do not duplicate what `go` already does well.
 
-## Why Squire?
 
-Over years of Go development, common pain points emerge:
+## How to pronounce
+
+Gomion is pronounced **GOM‑yun**, with a short _“o”_ sound as in _pom_, followed by _yun._
+
+**Breakdown:**
+- **Gom** = like *pom* in *pom‑pom* (short “o”)
+- **‑ion** = *yun* (as in *onion* without the leading “uh”)
+- Always two (2) syllables, _first stressed_
+
+
+**How not to pronounce:**
+- Do not pronounce as _go‑MY‑on_ or _GO‑mee‑on_
+- Avoid hard _“eye‑on”_ endings
+
+## Why Gomion?
+
+Over years of Go development, common pain points have emerged and I wanted a [minion](https://en.wikipedia.org/wiki/Minions_(Despicable_Me)) to help me when developing with Go:
 
 - **Multi-repo chaos**: Working on several related modules means juggling both `go.work` and `replace` directives, which drift out of sync
 - **`Makefile` proliferation**: Every project has a similar `Makefile` with `test`, `lint`, `build`, `ci` targets
 - **Forgotten tools**: One-off utilities get written, then forgotten and accidentally recreated months later
 - **Workspace friction**: Constantly referencing paths when running commands across a set of related projects
 
-Squire plans to address these by providing workspace-aware orchestration and consolidating tooling in one place.
+Gomion plans to address these by providing workspace-aware orchestration and consolidating tooling in one place.
 
 ## Current Status
 
-🚧 **Early Development** - Squire is brand new in Dec 2025 and now under active initial development. The concept is established, but few features are implemented yet.
+🚧 **Early Development** - Gomion is brand new in Dec 2025 and now under active initial development. The concept is established, but few features are implemented yet.
 
 ## Planned Features
 
@@ -54,8 +69,8 @@ _Installation instructions will be added once initial release is available._
 For now, to build from source:
 
 ```bash
-git clone https://github.com/mikeschinkel/squire.git
-cd squire
+git clone https://github.com/mikeschinkel/gomion.git
+cd gomion
 go install ./cmd/...
 ```
 
@@ -68,12 +83,12 @@ _Quick start guide will be added as features are implemented._
 This project uses Go workspaces with three modules:
 
 - **`cmd/`** - CLI entry point
-- **`squirepkg/`** - Core library (importable by other tools)
+- **`gommod/`** - Core library (Gomion Go module, importable by other tools)
 - **`test/`** - Test module
 
 ## Contributing
 
-Squire is designed to be open source and welcomes contributions! However, it's still in early development.
+Gomion is designed to be open source and welcomes contributions! However, it's still in early development.
 
 **Before contributing**:
 - Read [FEATURES.md](FEATURES.md) to understand the vision and design philosophy

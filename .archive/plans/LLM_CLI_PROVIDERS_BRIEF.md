@@ -1,14 +1,14 @@
-# Squire LLM CLI Provider Integration — Design Brief (for Claude Code)
+# Gomion LLM CLI Provider Integration — Design Brief (for Claude Code)
 
 **Date:** December 24, 2025  
-**Audience:** Claude Code (implementation agent) + Squire maintainers  
-**Purpose:** Implement a clean, extensible way for Squire (a Go CLI) to invoke *external* AI coding CLIs (Claude Code, Codex, Letta Code) **without Squire owning API keys**, while keeping the door open for additional tools later.
+**Audience:** Claude Code (implementation agent) + Gomion maintainers  
+**Purpose:** Implement a clean, extensible way for Gomion (a Go CLI) to invoke *external* AI coding CLIs (Claude Code, Codex, Letta Code) **without Gomion owning API keys**, while keeping the door open for additional tools later.
 
 ---
 
 ## 1) Executive summary
 
-Squire needs to call out to AI “coding assistant” CLIs as subprocesses from Go. The CLIs themselves should handle authentication (user subscription login, local credential storage, etc.) so Squire does **not** store or manage keys. For the MVP, implement a provider abstraction with **three first-class providers**:
+Gomion needs to call out to AI “coding assistant” CLIs as subprocesses from Go. The CLIs themselves should handle authentication (user subscription login, local credential storage, etc.) so Gomion does **not** store or manage keys. For the MVP, implement a provider abstraction with **three first-class providers**:
 
 1. **Claude Code**
 2. **Codex**
@@ -23,28 +23,28 @@ Later phases can add dedicated providers for OpenCode and GitHub Copilot; even l
 ## 2) Goals
 
 ### MVP goals (must have)
-- Provide a Go API and CLI-level integration in Squire to:
+- Provide a Go API and CLI-level integration in Gomion to:
   - Send a prompt (and optional context) to a selected AI CLI tool.
   - Capture results reliably (stdout/stderr, exit code).
   - Support **non-interactive/headless** invocation where possible.
-  - Support **streaming output** in Squire’s newline-oriented UI.
-- Squire must not require users to copy/paste or store API keys for MVP providers.
+  - Support **streaming output** in Gomion’s newline-oriented UI.
+- Gomion must not require users to copy/paste or store API keys for MVP providers.
 - Implement three first-class providers: **claude**, **codex**, **letta**.
 - Include a configurable, generic provider: **external-cli**.
 - Provide robust diagnostics and predictable output parsing.
 
 ### Nice-to-have (still MVP if quick)
-- “Structured output” mode: Squire can request JSON output if a provider supports it; otherwise Squire wraps text output into a JSON envelope for downstream parsing/logging.
+- “Structured output” mode: Gomion can request JSON output if a provider supports it; otherwise Gomion wraps text output into a JSON envelope for downstream parsing/logging.
 - Basic model selection support where providers allow it.
 - Configurable timeouts and cancellation via context.
 
 ---
 
 ## 3) Non-goals (MVP)
-- No “multi-turn agent session” state management inside Squire (beyond passing a prompt).
+- No “multi-turn agent session” state management inside Gomion (beyond passing a prompt).
 - No token/usage accounting beyond what providers explicitly return.
-- No deep tool-permission orchestration in Squire (providers may offer their own controls).
-- No attempt to standardize the ecosystem; Squire adapts.
+- No deep tool-permission orchestration in Gomion (providers may offer their own controls).
+- No attempt to standardize the ecosystem; Gomion adapts.
 
 ---
 
@@ -68,7 +68,7 @@ Later phases can add dedicated providers for OpenCode and GitHub Copilot; even l
 ## 5) Core requirements
 
 ### 5.1 Invocation model
-Squire will execute provider CLIs via subprocess from Go. Requirements:
+Gomion will execute provider CLIs via subprocess from Go. Requirements:
 - Must support:
   - `context.Context` for cancellation
   - timeout (configurable)
@@ -93,7 +93,7 @@ A request may include:
   - Arbitrary data piped (diff, logs, etc.)
 
 ### 5.3 Output model
-Squire needs a consistent internal response type:
+Gomion needs a consistent internal response type:
 
 ```go
 type Response struct {
@@ -113,7 +113,7 @@ type Response struct {
 If a provider can emit JSON, store it in `JSON` and optionally derive `Text` from a known field. If not, set `Format="text"` and store output in `Text`.
 
 ### 5.4 Configuration and selection
-Squire must allow selecting a provider via:
+Gomion must allow selecting a provider via:
 - CLI switch (e.g., `--llm-provider claude`)
 - config file default
 
@@ -182,7 +182,7 @@ Runner responsibilities:
 - resolve provider by name
 - call `Detect()` optionally to produce nicer errors
 - run subprocess with context cancellation
-- handle streaming to Squire inline UI (write stdout incrementally)
+- handle streaming to Gomion inline UI (write stdout incrementally)
 - apply timeout
 - collect stdout/stderr + exit code
 - call `ParseResult()`
@@ -196,7 +196,7 @@ Runner responsibilities:
 - Prefer headless mode if available (e.g., “print prompt and exit” pattern).
 - Prefer JSON output if available; otherwise text.
 - Keep flags in one place and version-gate if needed.
-- Ensure Squire can run it without TTY.
+- Ensure Gomion can run it without TTY.
 
 **Detect():**
 - `claude --version` (or equivalent; tolerate non-zero if that tool prints version elsewhere)
@@ -285,7 +285,7 @@ Placeholders:
 - `{{file:<path>}}` – optional advanced: load file contents into arg (future)
 
 ### 9.2 Redaction rules
-External provider config may include secrets in env var values; Squire must redact:
+External provider config may include secrets in env var values; Gomion must redact:
 - any env var keys matching `*_KEY`, `*_TOKEN`, `*_SECRET`, `PASSWORD`, etc.
 - any arg values flagged as secret in config (optional future)
 
@@ -360,7 +360,7 @@ Add `--debug-llm` (or reuse global debug) to log:
 - [ ] Redaction rules
 
 ### CLI UX
-- [ ] `squire ai run` command + flags
+- [ ] `gomion ai run` command + flags
 - [ ] Inline UI streaming integration (newline-oriented UI)
 
 ### Tests
@@ -375,7 +375,7 @@ Add `--debug-llm` (or reuse global debug) to log:
 - Do **not** assume Letta flags are stable; build in flexibility.
 - Keep provider-specific flags behind config as much as possible.
 - Prefer “simple request → output” for MVP. Multi-turn sessions can be later.
-- Ensure no auth material is stored by Squire. The provider CLIs own auth.
+- Ensure no auth material is stored by Gomion. The provider CLIs own auth.
 
 ---
 

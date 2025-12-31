@@ -1,6 +1,6 @@
-# Squire Roadmap
+# Gomion Roadmap
 
-This document tracks planned features and enhancements for Squire.
+This document tracks planned features and enhancements for Gomion.
 
 ## Status Key
 
@@ -17,7 +17,7 @@ This document tracks planned features and enhancements for Squire.
 
 **Status:** 🔴 Not Started
 **Priority:** Medium
-**Related Configs:** `~/.config/squire/config`, `<project>/.squire/config`
+**Related Configs:** `~/.config/gomion/config`, `<project>/.gomion/config`
 
 **Description:**
 
@@ -27,13 +27,13 @@ Provide a framework for keeping files in sync across projects based on declarati
 
 ```bash
 # Sync using user-level policy rules
-squire sync
+gomion sync
 
 # Sync using a project-level policy config
-squire sync --project=/path/to/base-camp
+gomion sync --project=/path/to/base-camp
 
 # Preview changes without writing
-squire sync --dry-run
+gomion sync --dry-run
 ```
 
 **Rule Model (Sketch):**
@@ -52,7 +52,7 @@ squire sync --dry-run
 
 **Implementation Notes:**
 
-1. Parse sync rules from `~/.config/squire/config` and `<project>/.squire/config`
+1. Parse sync rules from `~/.config/gomion/config` and `<project>/.gomion/config`
 2. Support a "home base" repo or base camp directory as a source of truth
 3. Provide dry-run, diff output, and selective apply
 4. Include a file-type strategy for Go drop-ins (AST-aware merge) vs plain file sync
@@ -60,8 +60,8 @@ squire sync --dry-run
 
 **Acceptance Criteria:**
 
-- `squire sync` applies user-level policy rules without modifying unrelated files
-- `squire sync --project` uses the specified base camp config for target repos
+- `gomion sync` applies user-level policy rules without modifying unrelated files
+- `gomion sync --project` uses the specified base camp config for target repos
 - Dry-run shows planned actions and conflicts
 - Supports both plain file sync and Go drop-in merges
 
@@ -76,20 +76,20 @@ squire sync --dry-run
 
 **Status:** 🔴 Not Started
 **Priority:** Medium
-**Related Command:** `squire requires-tree`
+**Related Command:** `gomion requires-tree`
 
 **Description:**
 
-Add support for the `--all` flag to the `requires-tree` command to include external (non-Squire-managed) modules in the dependency tree visualization.
+Add support for the `--all` flag to the `requires-tree` command to include external (non-Gomion-managed) modules in the dependency tree visualization.
 
 **Current Behavior:**
 
-The tree currently only shows Squire-managed modules (those discovered via `DiscoverModules` from `.squire/config.json`). External dependencies are not included in the visualization.
+The tree currently only shows Gomion-managed modules (those discovered via `DiscoverModules` from `.gomion/config.json`). External dependencies are not included in the visualization.
 
 **Desired Behavior:**
 
 When `--all` is specified:
-- Include external Go modules that are required by Squire-managed modules
+- Include external Go modules that are required by Gomion-managed modules
 - Show the complete dependency tree, not just internal modules
 - Use `go list -m -json` or similar tooling to discover external module metadata
 - Handle cases where external module information is unavailable gracefully
@@ -104,15 +104,15 @@ When `--all` is specified:
 
 **Acceptance Criteria:**
 
-- `squire requires-tree . --all` includes both internal and external modules
+- `gomion requires-tree . --all` includes both internal and external modules
 - External modules are visually distinguishable (or documented as such)
 - Command handles missing/unreachable external modules without crashing
 - Performance is acceptable for typical Go projects (hundreds of dependencies)
 
 **Related Documentation:**
 
-- PRD: `docs/squire-cli-tree-command-prd.md` (Section 6.2)
-- Phase 2 PRD: `docs/squire-phase-2-prd.md`
+- PRD: `docs/gomion-cli-tree-command-prd.md` (Section 6.2)
+- Phase 2 PRD: `docs/gomion-phase-2-prd.md`
 
 ---
 
@@ -124,7 +124,7 @@ When `--all` is specified:
 
 **Description:**
 
-Implement cross-repository stability management features to orchestrate API stability contracts across all Squire-managed Go packages. This includes automated changelog generation from Contract: annotations, cross-repo stability validation, and coordinated deprecation management.
+Implement cross-repository stability management features to orchestrate API stability contracts across all Gomion-managed Go packages. This includes automated changelog generation from Contract: annotations, cross-repo stability validation, and coordinated deprecation management.
 
 **Goals:**
 
@@ -137,22 +137,22 @@ Implement cross-repository stability management features to orchestrate API stab
 
 **Description:**
 
-Automatically generate CHANGELOG.md entries by parsing Contract: annotations from Go source code across all Squire-managed modules.
+Automatically generate CHANGELOG.md entries by parsing Contract: annotations from Go source code across all Gomion-managed modules.
 
 **Desired Behavior:**
 
 ```bash
 # Generate changelog for specific version
-squire changelog generate v1.7.0
+gomion changelog generate v1.7.0
 
 # Preview changelog without writing
-squire changelog preview v1.7.0
+gomion changelog preview v1.7.0
 
 # Update existing changelog with new entries
-squire changelog update --since v1.6.0
+gomion changelog update --since v1.6.0
 
 # Generate changelog across all modules
-squire changelog generate-all v1.7.0
+gomion changelog generate-all v1.7.0
 ```
 
 **Generated Output Example:**
@@ -208,11 +208,11 @@ squire changelog generate-all v1.7.0
 
 **Acceptance Criteria:**
 
-- `squire changelog generate` creates valid CHANGELOG.md entries
+- `gomion changelog generate` creates valid CHANGELOG.md entries
 - All Contract: annotations are captured
 - Deprecated items show removal dates and alternatives
 - Changelog follows Keep a Changelog format
-- Works across all Squire-managed modules
+- Works across all Gomion-managed modules
 - Can preview without writing
 - Can update existing changelog
 
@@ -272,22 +272,22 @@ Automated validation and enforcement of Contract: annotations in Go source code.
 
 **Description:**
 
-Validate API stability across all dependent Squire-managed modules to ensure breaking changes are coordinated.
+Validate API stability across all dependent Gomion-managed modules to ensure breaking changes are coordinated.
 
 **Desired Behavior:**
 
 ```bash
 # Check stability across all modules
-squire stability check
+gomion stability check
 
 # Check if specific module has breaking changes affecting others
-squire stability check --module=go-doterr
+gomion stability check --module=go-doterr
 
 # Show removal dates across all modules
-squire stability removal-dates
+gomion stability removal-dates
 
 # Check if ready to remove deprecated items
-squire stability ready-to-remove
+gomion stability ready-to-remove
 ```
 
 **Example Output:**
@@ -323,7 +323,7 @@ Summary:
 **Implementation Notes:**
 
 1. **Module Discovery**
-   - Use Squire's existing module discovery
+   - Use Gomion's existing module discovery
    - Build dependency graph
    - Identify cross-module dependencies
 
@@ -345,7 +345,7 @@ Summary:
 
 **Acceptance Criteria:**
 
-- Validates stability across all Squire-managed modules
+- Validates stability across all Gomion-managed modules
 - Detects cross-module dependencies on deprecated symbols
 - Warns about uncoordinated RemoveAfter dates
 - Provides actionable migration guidance
@@ -361,13 +361,13 @@ Coordinate RemoveAfter dates across packages to ensure dependencies have time to
 
 ```bash
 # Show all RemoveAfter dates in dependency order
-squire stability timeline
+gomion stability timeline
 
 # Check if RemoveAfter dates are safe
-squire stability validate-timeline
+gomion stability validate-timeline
 
 # Suggest RemoveAfter date for new deprecation
-squire stability suggest-removal-date --symbol=ErrOldName --module=go-dt
+gomion stability suggest-removal-date --symbol=ErrOldName --module=go-dt
 ```
 
 **Example Output:**
@@ -431,16 +431,16 @@ Generate comprehensive reports of breaking changes across all modules, with impa
 
 ```bash
 # Report breaking changes between versions
-squire breaking-changes --from=v1.6.0 --to=v1.7.0
+gomion breaking-changes --from=v1.6.0 --to=v1.7.0
 
 # Report across all modules
-squire breaking-changes --from=v1.6.0 --to=v1.7.0 --all-modules
+gomion breaking-changes --from=v1.6.0 --to=v1.7.0 --all-modules
 
 # Check if version bump is safe
-squire version-check v1.7.0
+gomion version-check v1.7.0
 
 # Suggest next version based on changes
-squire suggest-version
+gomion suggest-version
 ```
 
 **Example Output:**
@@ -515,7 +515,7 @@ Semver Recommendation:
 
 **With go-tuipoc:**
 - Use go-tuipoc for per-package stability validation
-- Aggregate results across all Squire-managed modules
+- Aggregate results across all Gomion-managed modules
 - Add cross-module dependency analysis layer
 
 **With Git:**
@@ -555,7 +555,7 @@ Semver Recommendation:
 - `go-dt/adrs/adr-2025-12-20-stability-levels.md` - General stability levels
 - `go-doterr/adrs/adr-2025-12-20-error-sentinel-strategy.md` - Error-specific stability
 - `go-tuipoc/PLAN.md` - Stability compliance checks
-- `docs/squire-phase-2-prd.md` - Multi-repo orchestration
+- `docs/gomion-phase-2-prd.md` - Multi-repo orchestration
 
 ---
 
@@ -563,15 +563,15 @@ Semver Recommendation:
 
 **Status:** 🟡 In Progress
 **Priority:** High
-**Related Files:** `COMMIT_MSG_BRIEF.md`, `squirepkg/squirecmds/next_cmd.go`
+**Related Files:** `COMMIT_MSG_BRIEF.md`, `gompkg/gomioncmds/next_cmd.go`
 
 **Description:**
 
-Enhance the `squire next` interactive workflow with AI-powered commit message generation and a custom BubbleTea editor for crafting commit messages. This replaces the manual git workflow with an intelligent, guided process.
+Enhance the `gomion next` interactive workflow with AI-powered commit message generation and a custom BubbleTea editor for crafting commit messages. This replaces the manual git workflow with an intelligent, guided process.
 
 **Current Implementation (Completed):**
 
-- ✅ Interactive menu in `squire next` for dirty repos
+- ✅ Interactive menu in `gomion next` for dirty repos
 - ✅ `[s]tatus` - Show git status
 - ✅ `sta[g]e` - Stage files belonging to current module (excluding nested modules)
 - ✅ `[u]nstage` - Unstage all files
@@ -583,7 +583,7 @@ Enhance the `squire next` interactive workflow with AI-powered commit message ge
 
 ```bash
 # Interactive workflow
-squire next ~/Projects/myrepo
+gomion next ~/Projects/myrepo
 
 # User stages files with 'g' → only current module files staged
 # User presses 'c' → AI generates commit message from staged diff
@@ -616,7 +616,7 @@ Custom TUI editor specifically designed for commit messages, not a general-purpo
   - Module name
 - **Actions:**
   - AI suggest/improve integration
-  - Save/load drafts from `~/.config/squire/commit-drafts/`
+  - Save/load drafts from `~/.config/gomion/commit-drafts/`
   - Preview mode
   - Validation (title required, length limits)
 - **Keybindings:**
@@ -629,7 +629,7 @@ Custom TUI editor specifically designed for commit messages, not a general-purpo
   - Esc: cancel
 
 **Implementation Location:**
-- Package: TBD (options: `squirepkg/commitmsg`, extend `cliutil`, or new `squirepkg/tuiutil`)
+- Package: TBD (options: `gompkg/commitmsg`, extend `cliutil`, or new `gompkg/tuiutil`)
 - Components: BubbleTea models, glamour for rendering
 - Reference: `~/Projects/go-pkgs/go-tuipoc` for patterns
 
@@ -637,9 +637,9 @@ Custom TUI editor specifically designed for commit messages, not a general-purpo
 - Don't create packages on a whim
 - Only if: import cycles require it OR very specific domain
 - Options to consider:
-  - `squirepkg/commitmsg` - commit message domain (generation + editing)
+  - `gompkg/commitmsg` - commit message domain (generation + editing)
   - Extend `cliutil` - if generally useful for CLI
-  - `squirepkg/tuiutil` - if multiple TUI components needed
+  - `gompkg/tuiutil` - if multiple TUI components needed
 - **Decision**: Defer until scope is clearer
 
 #### 2. LLM Provider Configuration (🔴 Not Started)
@@ -656,7 +656,7 @@ Make LLM provider configurable and support multiple backends.
     "provider": "claude_cli",  // "claude_cli" | "codex_cli"
     "claude_exe": "claude",
     "codex_exe": "codex",
-    "system_prompt_file": "~/.config/squire/prompts/commitmsg_agent.txt",
+    "system_prompt_file": "~/.config/gomion/prompts/commitmsg_agent.txt",
     "max_diff_bytes": 200000,
     "timeout_seconds": 60,
     "output": "json",  // "json" | "text"
@@ -673,7 +673,7 @@ Make LLM provider configurable and support multiple backends.
 - No diff size limits
 
 **Needed:**
-- Add LLM config to `squirepkg/squirecfg/`
+- Add LLM config to `gompkg/gomioncfg/`
 - Implement provider factory pattern
 - Support both Claude Code CLI and OpenAI Codex CLI
 - Add timeout context
@@ -713,7 +713,7 @@ Simple inline string requesting conventional commits.
 Persist commit message drafts for later editing.
 
 **Features:**
-- Save drafts to `~/.config/squire/commit-drafts/{module-name}-{timestamp}.txt`
+- Save drafts to `~/.config/gomion/commit-drafts/{module-name}-{timestamp}.txt`
 - Load most recent draft for current module
 - List available drafts
 - Clean up old drafts (configurable retention)
@@ -729,14 +729,14 @@ Persist commit message drafts for later editing.
 Standalone command for scripting and testing.
 
 ```bash
-squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]
+gomion commitmsg [--repo <dir>] [--format json|text] [--output <file>]
 ```
 
 **Use Cases:**
 - CI/CD integration
 - Scripting
 - Testing
-- Independent of `squire next` workflow
+- Independent of `gomion next` workflow
 
 **Acceptance Criteria:**
 
@@ -748,7 +748,7 @@ squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]
 - 🔴 Draft save/load functionality
 - 🔴 JSON output with schema validation
 - 🔴 Diff size limits and truncation
-- 🔴 Standalone `squire commitmsg` command
+- 🔴 Standalone `gomion commitmsg` command
 
 **Design Principles:**
 
@@ -756,7 +756,7 @@ squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]
 2. **Context-Aware** - Show files, stats, module info
 3. **AI-Assisted but User-Controlled** - Suggestions, not automation
 4. **Module-Scoped** - Respects nested module boundaries
-5. **Workflow-Integrated** - Part of `squire next`, not standalone git wrapper
+5. **Workflow-Integrated** - Part of `gomion next`, not standalone git wrapper
 
 **Related Documentation:**
 
@@ -777,7 +777,7 @@ squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]
 **Status:** 🟢 Completed
 **Completed:** Phase 2
 
-- Module discovery from `.squire/config.json`
+- Module discovery from `.gomion/config.json`
 - Dependency-safe ordering via topological sort
 - Module classification (lib/cmd/test)
 - Versioned vs non-versioned heuristics

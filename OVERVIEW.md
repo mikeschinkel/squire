@@ -1,6 +1,6 @@
-# Squire Overview
+# Gomion Overview
 
-Squire is a Go-centric, multi-purpose CLI that consolidates project tooling, multi-repo workflows, and one-off utilities into a single, cohesive command-line experience. It is a Swiss Army Knife for Go development that orchestrates tasks normally done via Makefiles, shell scripts, or multi-step workflows. Squire is not a replacement for native go commands; it provides higher-level orchestration.
+Gomion is a Go-centric, multi-purpose CLI that consolidates project tooling, multi-repo workflows, and one-off utilities into a single, cohesive command-line experience. It is a Swiss Army Knife for Go development that orchestrates tasks normally done via Makefiles, shell scripts, or multi-step workflows. Gomion is not a replacement for native go commands; it provides higher-level orchestration.
 
 Current status: early development (Dec 2025). The concept and architecture are defined, with several implemented components and multiple active plans.
 
@@ -8,7 +8,7 @@ Current status: early development (Dec 2025). The concept and architecture are d
 
 ## Purpose and Vision
 
-Squire is designed to support a developer working across many Git repos and Go modules, including:
+Gomion is designed to support a developer working across many Git repos and Go modules, including:
 
 - Repos with multiple Go modules (package modules, cmd/* modules, test modules).
 - Lockstep app repos (lib + CLI + tests share a version) and independent library families (dt/dtx/dtglob/appinfo).
@@ -45,8 +45,8 @@ The long-term mission is to make multi-repo, multi-module development safer, mor
 - Repo: a Git repository (identified by .git).
 - Module: a Go module with go.mod.
 - Root repo: a repo that acts as the root of a dependency tree (application/service).
-- Managed repo: a repo with .squire/config.json.
-- Unmanaged repo: a repo without .squire/config.json.
+- Managed repo: a repo with .gomion/config.json.
+- Unmanaged repo: a repo without .gomion/config.json.
 - Owned module: a module under active control (via workspace patterns or repo/module overrides).
 
 #### Maybe no longer used
@@ -62,7 +62,7 @@ Use the term "requires" consistently across code, config, CLI, and docs.
 
 ### "Active" development and "In-flux" state
 
-_"Active"_ development is a term applies to a Go package that is not "in-flux" _(see below)_ and is also a dependency of the app we are working on _(the classification of "active" is alway relevant to an executable or package that depends on it.)_ Squire looks for candidates for "active" within the directories listed in the `"scan_dirs"`setting in the user config, e.g. `["~/Projects"]` could be a value for `"scan_dirs"`.  
+_"Active"_ development is a term applies to a Go package that is not "in-flux" _(see below)_ and is also a dependency of the app we are working on _(the classification of "active" is alway relevant to an executable or package that depends on it.)_ Gomion looks for candidates for "active" within the directories listed in the `"scan_dirs"`setting in the user config, e.g. `["~/Projects"]` could be a value for `"scan_dirs"`.  
 
 A module or repo is in-flux if any of the following are true:
 
@@ -88,7 +88,7 @@ A _"leaf"_ module is an in-flux module that has no in-flux dependencies. This is
 This repository uses Go workspaces with three modules:
 
 - cmd/ - CLI entry point
-- squirepkg/ - Core library
+- gompkg/ - Core library
 - test/ - Test module (avoids circular dependencies)
 
 Each module has its own go.mod. Use go work sync after modifying dependencies.
@@ -98,7 +98,7 @@ Each module has its own go.mod. Use go work sync after modifying dependencies.
 Commands auto-register via init() using go-cliutil:
 
 ```go
-package squirecmds
+package gomioncmds
 
 import "github.com/mikeschinkel/go-cliutil"
 
@@ -118,7 +118,7 @@ func init() {
 }
 
 func (c *MyCmd) Handle() error {
-    config := c.Config.(*squire.Config)
+    config := c.Config.(*gomion.Config)
     c.Writer.Printf("Executing...\n")
     return nil
 }
@@ -129,18 +129,18 @@ Key points:
 - Commands embed *cliutil.CmdBase.
 - Commands implement Handle() error.
 - Commands register via init().
-- Commands are discovered via blank import: _ "github.com/mikeschinkel/squire/squirepkg/squirecmds".
+- Commands are discovered via blank import: _ "github.com/mikeschinkel/gomion/gompkg/gomioncmds".
 
 ### Execution Flow
 
 ```
-cmd/main.go
-  -> squirepkg.RunCLI()
+cmd/gomion/main.go
+  -> gommod.RunCLI()
     -> Parse CLI args (cliutil.ParseCLIOptions)
-    -> Load configs (squirecfg.LoadRootConfigV1)
+    -> Load configs (gomioncfg.LoadRootConfigV1)
     -> Transform to runtime config
     -> Setup logger/writer
-    -> squirepkg.Run()
+    -> gommod.Run()
       -> Create CmdRunner
       -> Parse command from args
       -> Execute command.Handle()
@@ -148,16 +148,16 @@ cmd/main.go
 
 ### Core Package Responsibilities
 
-- squirepkg/run_cli.go: entry point, options/config parsing, initialization
-- squirepkg/run.go: command runner orchestration
-- squirepkg/config.go: config transformation (squirecfg -> squire)
-- squirepkg/parse_options.go: options transformation
+- gompkg/run_cli.go: entry point, options/config parsing, initialization
+- gompkg/run.go: command runner orchestration
+- gompkg/config.go: config transformation (gomioncfg -> gomion)
+- gompkg/parse_options.go: options transformation
 
 Common packages:
 
-- squirepkg/squire: Config, Options, constants, singleton logger/writer
-- squirepkg/squirecfg: configuration file structures, go-cfgstore loading
-- squirepkg/squirecmds: command implementations
+- gompkg/gomion: Config, Options, constants, singleton logger/writer
+- gompkg/gomioncfg: configuration file structures, go-cfgstore loading
+- gompkg/gomioncmds: command implementations
 
 ### Design Patterns
 
@@ -169,7 +169,7 @@ Common packages:
 ### Error Handling and Conventions
 
 - Use ClearPath-style goto end cleanup patterns when appropriate.
-- Package-level singleton access via squire.EnsureLogger().
+- Package-level singleton access via gomion.EnsureLogger().
 - Exit codes (run_cli.go):
   - 1: options parsing error
   - 2: config loading error
@@ -182,7 +182,7 @@ Common packages:
 
 ## Required Dependencies and Conventions
 
-Squire must use these packages when applicable:
+Gomion must use these packages when applicable:
 
 ### Production
 
@@ -215,17 +215,17 @@ Squire must use these packages when applicable:
 
 ### Scope and Layers
 
-Squire uses a three-layer model:
+Gomion uses a three-layer model:
 
-1. User-level config: ~/.config/squire/config.json
-2. Repo-level config: .squire/config.json or .squire.json in repo root
-3. Module-level config: .squire/config.json or .squire.json in module dir
+1. User-level config: ~/.config/gomion/config.json
+2. Repo-level config: .gomion/config.json or .gomion.json in repo root
+3. Module-level config: .gomion/config.json or .gomion.json in module dir
 
 Merging order: user -> repo -> module -> CLI flags (later overrides earlier).
 
 ### v0 Repo Config Schema
 
-Location: <repo-root>/.squire/config.json
+Location: <repo-root>/.gomion/config.json
 
 Required field: modules map. Example:
 
@@ -233,7 +233,7 @@ Required field: modules map. Example:
 {
   "modules": {
     "./apppkg": {"name": "apppkg", "role": ["lib"]},
-    "./cmd": {"name": "squire-cli", "role": ["cli"]},
+    "./cmd": {"name": "gomion-cli", "role": ["cli"]},
     "./test": {"name": "test", "role": ["test"]}
   }
 }
@@ -268,10 +268,10 @@ Resolution order: module -> repo -> workspace -> default (not owned).
 Use inline directives in go.mod as canonical config:
 
 ```go
-//squire:goexperiments=arenas,regabiwrappers
+//gomion:goexperiments=arenas,regabiwrappers
 ```
 
-Squire reads these directives and sets GOEXPERIMENT when running go commands. Experiments are treated as must-have for now.
+Gomion reads these directives and sets GOEXPERIMENT when running go commands. Experiments are treated as must-have for now.
 
 ---
 
@@ -279,14 +279,14 @@ Squire reads these directives and sets GOEXPERIMENT when running go commands. Ex
 
 ### v0 Commands
 
-#### squire scan
+#### gomion scan
 
 Purpose: discover go.mod files under roots for unmanaged repos.
 
 Usage:
 
 ```
-squire scan --root <dir> [--root <dir> ...]
+gomion scan --root <dir> [--root <dir> ...]
 ```
 
 Behavior:
@@ -294,17 +294,17 @@ Behavior:
 - Expand ~ in roots and output absolute paths.
 - Find go.mod files.
 - Determine repo root via .git.
-- Skip repos with .squire/config.json.
+- Skip repos with .gomion/config.json.
 - Output each included go.mod path on its own line.
 
-#### squire init
+#### gomion init
 
-Purpose: create .squire/config.json for selected repos.
+Purpose: create .gomion/config.json for selected repos.
 
 Usage:
 
 ```
-squire init --file <path>
+gomion init --file <path>
 ```
 
 Input file:
@@ -321,7 +321,7 @@ Behavior:
   - cmd/ -> cli
   - test/ -> test
   - others -> lib
-- Write .squire/config.json.
+- Write .gomion/config.json.
 
 Errors:
 
@@ -334,7 +334,7 @@ Errors:
 Command (working name):
 
 ```
-squire requires tree [<dir>] [flags]
+gomion requires tree [<dir>] [flags]
 ```
 
 Purpose:
@@ -353,7 +353,7 @@ Flags:
 Marker:
 
 ```
-<!-- squire:embed-requires-tree -->
+<!-- gomion:embed-requires-tree -->
 ```
 
 Embedding:
@@ -372,8 +372,8 @@ Tree format:
 
 ### plan and next/process
 
-- squire plan: graph display (inspection). Must remain backward compatible.
-- squire next: engine-based leaf selection and verdicts. Output is machine-parseable.
+- gomion plan: graph display (inspection). Must remain backward compatible.
+- gomion next: engine-based leaf selection and verdicts. Output is machine-parseable.
 
 
 ---
@@ -414,7 +414,7 @@ Config (ai_provider or llm block):
 - conventional_commits: true/false
 - strip_env: keys to remove (ANTHROPIC_API_KEY, OPENAI_API_KEY)
 
-Interactive flow in squire next:
+Interactive flow in gomion next:
 
 - Option [m]essage or [c]ommitmsg.
 - Generate from staged diff only.
@@ -424,7 +424,7 @@ Interactive flow in squire next:
 Non-interactive command (planned):
 
 ```
-squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]
+gomion commitmsg [--repo <dir>] [--format json|text] [--output <file>]
 ```
 
 Claude CLI invocation (preferred):
@@ -443,7 +443,7 @@ Output should be JSON {subject, body} when possible.
 
 ## LLM CLI Provider Integration (Broader)
 
-Purpose: invoke external AI CLIs without Squire owning API keys.
+Purpose: invoke external AI CLIs without Gomion owning API keys.
 
 MVP providers:
 
@@ -470,7 +470,7 @@ Redaction rules for env and args with secrets.
 
 ### Policy File Sync and Drop-in Manager
 
-- squire sync to distribute policy files across repos.
+- gomion sync to distribute policy files across repos.
 - Declarative rules from user or project config.
 - Supports copy, template, merge, drop-in actions.
 
@@ -487,7 +487,7 @@ Redaction rules for env and args with secrets.
 
 ## Release Automation and GitHub Integration
 
-- Tagging and releasing can be done either by Squire directly or by GitHub Actions depending on configuration.
+- Tagging and releasing can be done either by Gomion directly or by GitHub Actions depending on configuration.
 - Release workflow should run tests, lint, vet before tagging.
 - GoReleaser as an option used for binary releases.
 - Optional commands to ensure appropriate .github/workflows exist for managed repos.
@@ -496,14 +496,14 @@ Redaction rules for env and args with secrets.
 
 ## go.work and replace Orchestration
 
-Squire treats go.work and replace directives as orthogonal knobs:
+Gomion treats go.work and replace directives as orthogonal knobs:
 
 - go.work: which local module directories participate in workspace.
 - replace: how module paths are resolved for a specific go.mod.
 
 Commands (names TBD):
 
-- Commands to add or remove Squire-managed replace blocks.
+- Commands to add or remove Gomion-managed replace blocks.
 - If needed, commands adopt mode for existing replace directives.
 - Commands should ensure go.work/.sum are managed or ignored per policy.
 
@@ -522,18 +522,18 @@ Design potentially supports a current language with possible overrides:
 }
 ```
 
-Commands like squire test/lint/build should default to current language, with --lang or --zig overrides. Language backend registry is planned when a second language is needed.
+Commands like gomion test/lint/build should default to current language, with --lang or --zig overrides. Language backend registry is planned when a second language is needed.
 
 ---
 
 
 ## Naming and Miscellany
 
-### Squire Naming
+### Gomion Naming
 
-Squire is an opinionated tool but designed to be useful to others. It is open source, Apache 2.0 licensed
+Gomion is an opinionated tool but designed to be useful to others. It is open source, Apache 2.0 licensed
 
-Squire will soon be renamed to Gomion.
+Gomion will soon be renamed to Gomion.
 
 ### Gomion Pronunciation
 
@@ -545,7 +545,7 @@ Gomion is pronounced GOM-yun (short "o" as in pom, then "yun"). Two syllables, f
 ## What Not to Add
 
 - Do not add commands that duplicate native go commands.
-- Do not add squire gomod; use go mod directly.
+- Do not add gomion gomod; use go mod directly.
 - Do add commands that orchestrate multiple go commands.
 - Do add multi-repo orchestration commands.
 

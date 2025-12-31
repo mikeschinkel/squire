@@ -1,13 +1,13 @@
-# Squire CLI — Project Overview and Context
+# Gomion CLI — Project Overview and Context
 
 ## 1. Purpose
 
-**Squire** is a personal developer-assistant CLI designed to act as a **companion tool for Go developers**, including the author’s broader XMLUI and Go package ecosystems.
+**Gomion** is a personal developer-assistant CLI designed to act as a **companion tool for Go developers**, including the author’s broader XMLUI and Go package ecosystems.
 It replaces the author’s earlier MCP server prototype with a simpler, more maintainable, and debuggable command-line tool.
 
-Squire’s guiding metaphor:
+Gomion’s guiding metaphor:
 
-> The “Squire” serves the “Knight” (the developer) — handling repetitive and organizational work so the Knight can focus on battles that matter.
+> The “Gomion” serves the “Knight” (the developer) — handling repetitive and organizational work so the Knight can focus on battles that matter.
 
 ---
 
@@ -32,7 +32,7 @@ To retain that functionality—and make future extensions easier to debug and ma
 * Existing code: [`check_docs_tool.go`](https://github.com/mikeschinkel/scout-mcp/blob/main/mcptools/check_docs_tool.go) and test file.
 * Repository: [`mikeschinkel/scout-mcp`](https://github.com/mikeschinkel/scout-mcp).
 
-Squire will extract this logic, expand it, and eventually deprecate the MCP server layer.
+Gomion will extract this logic, expand it, and eventually deprecate the MCP server layer.
 
 ---
 
@@ -53,10 +53,10 @@ Squire will extract this logic, expand it, and eventually deprecate the MCP serv
 
 ### ✅ Phase 1 — Extract and Modernize
 
-* **Command:** `squire scan docs`
+* **Command:** `gomion scan docs`
   Scans Go packages and lists all exported symbols missing doc comments.
 
-* **Command:** `squire scan readmes`
+* **Command:** `gomion scan readmes`
   Finds directories containing Go packages without `README.md`.
 
 * **Output formats:** `text` (default), `json`, `ndjson`.
@@ -67,12 +67,12 @@ Squire will extract this logic, expand it, and eventually deprecate the MCP serv
 
 #### A. Package Relationship Visualization
 
-* **Command:** `squire map imports --mermaid`
+* **Command:** `gomion map imports --mermaid`
   Generates a Mermaid-compatible dependency graph to visualize package relationships.
 
 #### B. ClearPath Compliance (Code Hygiene)
 
-* **Command:** `squire lint clearpath`
+* **Command:** `gomion lint clearpath`
   Scans for violations of the author’s *ClearPath* style rules (e.g., avoid early returns, prefer `goto end` for cleanup consistency).
 
 #### C. Future Linter Enhancements
@@ -86,10 +86,10 @@ Squire will extract this logic, expand it, and eventually deprecate the MCP serv
 
 | Integration             | Purpose                                                                                             |
 | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| **Claude Code**         | Can call `squire ... --json` to produce actionable output for automated documentation improvements. |
+| **Claude Code**         | Can call `gomion ... --json` to produce actionable output for automated documentation improvements. |
 | **JetBrains (GoLand)**  | Configurable external tool for doc hygiene scans or dependency visualization.                       |
 | **GitHub Actions**      | Use as a CI job to enforce documentation and README presence.                                       |
-| **XMLUI Dev Toolchain** | Squire can assist developers working on XMLUI-based apps or packages.                               |
+| **XMLUI Dev Toolchain** | Gomion can assist developers working on XMLUI-based apps or packages.                               |
 
 ---
 
@@ -98,7 +98,7 @@ Squire will extract this logic, expand it, and eventually deprecate the MCP serv
 Example structure (subject to iteration):
 
 ```
-squire
+gomion
 ├── scan
 │   ├── docs         # missing doc comments
 │   └── readmes      # missing README.md files
@@ -122,7 +122,7 @@ Each command supports:
 
 ## 7. Future-Proofing and Compatibility
 
-* The binary name will be **`squire`**, despite an existing archived project (`mitchellh/squire`), since that project is long defunct and domain overlap is minimal.
+* The binary name will be **`gomion`**, despite an existing archived project (`mitchellh/gomion`), since that project is long defunct and domain overlap is minimal.
 * If conflicts arise, an alias such as `sqr` may be added.
 * The architecture will make it easy to extend with new static-analysis or project-maintenance commands.
 * Each feature is encapsulated under a subpackage in `internal/`.
@@ -131,10 +131,10 @@ Each command supports:
 
 ## 8. Naming Justification
 
-The name **Squire** was chosen for thematic and practical reasons:
+The name **Gomion** was chosen for thematic and practical reasons:
 
 * Complements the author’s earlier project **Scout** (`scout-mcp`).
-* Conveys helpfulness, reliability, and organization (“a squire keeps the knight’s gear in order”).
+* Conveys helpfulness, reliability, and organization (“a gomion keeps the knight’s gear in order”).
 * Short, easy to remember, and already part of a consistent ecosystem (e.g., XMLUI, Scout, ClearPath).
 
 ---
@@ -144,9 +144,9 @@ The name **Squire** was chosen for thematic and practical reasons:
 | Project                 | Role                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------- |
 | **scout-mcp**           | Predecessor (MCP-based version).                                                            |
-| **xmlui-test-server**   | Backend framework where Squire’s code scanning and DB schema tools may later be integrated. |
+| **xmlui-test-server**   | Backend framework where Gomion’s code scanning and DB schema tools may later be integrated. |
 | **ClearPath**           | Coding style guidelines and planned lint rules.                                             |
-| **XMLUI CLI ecosystem** | Target platform for Squire’s reuse and integration.                                         |
+| **XMLUI CLI ecosystem** | Target platform for Gomion’s reuse and integration.                                         |
 
 ---
 
@@ -218,7 +218,7 @@ The name **Squire** was chosen for thematic and practical reasons:
 
 ## 14. Long-Term Vision
 
-**Squire** will grow into a modular helper toolkit for developers across the author’s Go ecosystem:
+**Gomion** will grow into a modular helper toolkit for developers across the author’s Go ecosystem:
 
 * Assist with **documentation hygiene**.
 * Support **visual introspection** (package graphs, structure maps).

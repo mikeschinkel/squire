@@ -2,7 +2,7 @@ module test
 
 go 1.25.3
 
-replace github.com/mikeschinkel/squire/squirepkg => ../squirepkg
+replace github.com/mikeschinkel/gomion/gommod => ../gommod
 
 replace github.com/mikeschinkel/go-fsfix => ../../go-pkgs/go-fsfix
 
@@ -15,7 +15,7 @@ require (
 	github.com/mikeschinkel/go-dt/appinfo v0.2.1
 	github.com/mikeschinkel/go-fsfix v0.2.2
 	github.com/mikeschinkel/go-testutil v0.3.0
-	github.com/mikeschinkel/squire/squirepkg v0.0.0-00010101000000-000000000000
+	github.com/mikeschinkel/gomion/gommod v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 )
 

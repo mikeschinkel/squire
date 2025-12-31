@@ -1,0 +1,80 @@
+You are analyzing a git diff to suggest different ways of grouping changes into logical commits.
+
+# Task
+Analyze the provided git diff and suggest THREE different "takes" (perspectives) on how to group these changes into logical commits. Each take should use a different organizational strategy.
+
+# Input Files
+{{range .Files -}}
+- {{.}}
+{{end}}
+
+# Git Diff
+```
+{{.Diff}}
+```
+
+# Required Strategies
+Please provide exactly 3 takes using these strategies:
+
+1. **By Feature/Functionality** - Group changes by the features or capabilities they add/modify
+2. **By Layer/Component** - Group changes by architectural layers (UI, business logic, data, tests, etc.)
+3. **By Risk/Impact** - Group changes by their potential impact (safe refactors, risky changes, critical fixes, etc.)
+
+# Output Format
+Respond with ONLY valid JSON matching this exact structure (no additional commentary):
+
+{
+  "takes": [
+    {
+      "number": 1,
+      "theme": "By Feature",
+      "groups": [
+        {
+          "name": "Add user authentication",
+          "rationale": "All changes related to implementing login/logout functionality",
+          "files": ["auth.go", "login.html", "auth_test.go"]
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "theme": "By Layer",
+      "groups": [
+        {
+          "name": "Backend logic",
+          "rationale": "Core business logic changes",
+          "files": ["auth.go", "user.go"]
+        },
+        {
+          "name": "Frontend UI",
+          "rationale": "User interface changes",
+          "files": ["login.html", "style.css"]
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "theme": "By Risk",
+      "groups": [
+        {
+          "name": "Safe refactoring",
+          "rationale": "Low-risk code cleanup with no behavior changes",
+          "files": ["utils.go"]
+        },
+        {
+          "name": "Critical security fix",
+          "rationale": "Authentication vulnerability fix - needs careful review",
+          "files": ["auth.go"]
+        }
+      ]
+    }
+  ]
+}
+
+# Important Rules
+- EVERY file from the input list MUST appear in exactly ONE group across all takes
+- Each take should have 2-5 groups (not too granular, not too coarse)
+- Group names should be concise and descriptive
+- Rationales should explain WHY these files belong together
+- Use the exact JSON structure shown above
+- Do not include any text before or after the JSON

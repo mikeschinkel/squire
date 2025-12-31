@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/mikeschinkel/go-fsfix"
-	"github.com/mikeschinkel/squire/squirepkg/squiresvc"
+	"github.com/mikeschinkel/gomion/gommod/gompkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,14 +13,14 @@ import (
 func TestModuleDiscovery(t *testing.T) {
 	t.Run("SingleModule", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
+		var ms *gompkg.ModuleSet
 
-		tf := fsfix.NewRootFixture("squiresvc-single-module")
+		tf := fsfix.NewRootFixture("gompkg-single-module")
 		defer tf.Cleanup()
 
-		// Create a simple project with .squire/config.json and go.mod
+		// Create a simple project with .gomion/config.json and go.mod
 		pf := tf.AddRepoFixture(t, "test-project", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -40,24 +40,24 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 		require.NotNil(t, ms, "Should return ModuleSet")
 
 		assert.Len(t, ms.Modules, 1, "Should discover exactly one module")
 		assert.Equal(t, "github.com/example/test-project", ms.Modules[0].ModulePath)
-		assert.Equal(t, squiresvc.LibModuleKind, ms.Modules[0].Kind, "Root module should be detected as lib")
+		assert.Equal(t, gompkg.LibModuleKind, ms.Modules[0].Kind, "Root module should be detected as lib")
 	})
 
 	t.Run("MultipleModules", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
+		var ms *gompkg.ModuleSet
 
-		tf := fsfix.NewRootFixture("squiresvc-multiple-modules")
+		tf := fsfix.NewRootFixture("gompkg-multiple-modules")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "multi-module-project", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -99,13 +99,13 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 		require.NotNil(t, ms, "Should return ModuleSet")
 
 		assert.Len(t, ms.Modules, 3, "Should discover all three modules")
 
-		modulesByPath := make(map[string]*squiresvc.Module)
+		modulesByPath := make(map[string]*gompkg.Module)
 		for _, m := range ms.Modules {
 			modulesByPath[m.ModulePath] = m
 		}
@@ -115,11 +115,11 @@ go 1.23
 		assert.Contains(t, modulesByPath, "github.com/example/multi-module-project/lib")
 	})
 
-	t.Run("NoSquireConfig", func(t *testing.T) {
+	t.Run("NoGomionConfig", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
+		var ms *gompkg.ModuleSet
 
-		tf := fsfix.NewRootFixture("squiresvc-no-config")
+		tf := fsfix.NewRootFixture("gompkg-no-config")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "no-config-project", nil)
@@ -132,9 +132,9 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 
-		require.Error(t, err, "Should return error when no .squire config exists")
+		require.Error(t, err, "Should return error when no .gomion config exists")
 		assert.Nil(t, ms, "Should not return ModuleSet on error")
 	})
 }
@@ -143,14 +143,14 @@ go 1.23
 func TestModuleOrdering(t *testing.T) {
 	t.Run("SimpleLinearDependency", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
-		var ordered squiresvc.Modules
+		var ms *gompkg.ModuleSet
+		var ordered gompkg.Modules
 
-		tf := fsfix.NewRootFixture("squiresvc-linear-deps")
+		tf := fsfix.NewRootFixture("gompkg-linear-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "linear-project", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -182,7 +182,7 @@ require github.com/example/linear/lib v0.0.0
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -197,14 +197,14 @@ require github.com/example/linear/lib v0.0.0
 
 	t.Run("NoDependencies", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
-		var ordered squiresvc.Modules
+		var ms *gompkg.ModuleSet
+		var ordered gompkg.Modules
 
-		tf := fsfix.NewRootFixture("squiresvc-no-deps")
+		tf := fsfix.NewRootFixture("gompkg-no-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "independent-modules", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -244,7 +244,7 @@ go 1.23
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -265,14 +265,14 @@ go 1.23
 
 	t.Run("CircularDependency", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
-		var ordered squiresvc.Modules
+		var ms *gompkg.ModuleSet
+		var ordered gompkg.Modules
 
-		tf := fsfix.NewRootFixture("squiresvc-circular-deps")
+		tf := fsfix.NewRootFixture("gompkg-circular-deps")
 		defer tf.Cleanup()
 
 		pf := tf.AddRepoFixture(t, "circular-project", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -306,7 +306,7 @@ require github.com/example/circular/module-a v0.0.0
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()
@@ -318,10 +318,10 @@ require github.com/example/circular/module-a v0.0.0
 
 	t.Run("ComplexDependencyTree", func(t *testing.T) {
 		var err error
-		var ms *squiresvc.ModuleSet
-		var ordered squiresvc.Modules
+		var ms *gompkg.ModuleSet
+		var ordered gompkg.Modules
 
-		tf := fsfix.NewRootFixture("squiresvc-complex-deps")
+		tf := fsfix.NewRootFixture("gompkg-complex-deps")
 		defer tf.Cleanup()
 
 		// Create a diamond dependency pattern:
@@ -331,7 +331,7 @@ require github.com/example/circular/module-a v0.0.0
 		//      \      /
 		//        cmd
 		pf := tf.AddRepoFixture(t, "complex-project", nil)
-		pf.AddFileFixture(t, ".squire/config.json", &fsfix.FileFixtureArgs{
+		pf.AddFileFixture(t, ".gomion/config.json", &fsfix.FileFixtureArgs{
 			Content: `{
 				"version": "1",
 				"modules": {
@@ -390,7 +390,7 @@ require (
 
 		tf.Create(t)
 
-		ms, err = squiresvc.DiscoverModules(string(pf.Dir()))
+		ms, err = gompkg.DiscoverModules(string(pf.Dir()))
 		require.NoError(t, err, "Should discover modules without error")
 
 		ordered, err = ms.OrderModules()

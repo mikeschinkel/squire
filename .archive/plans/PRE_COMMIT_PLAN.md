@@ -1,8 +1,8 @@
-# PRE-commit Analysis for Squire Next - Comprehensive Plan
+# PRE-commit Analysis for Gomion Next - Comprehensive Plan
 
 ## Problem Statement
 
-The `squire next` workflow needs intelligent commit assistance with API change analysis, but there's a fundamental chicken-and-egg problem:
+The `gomion next` workflow needs intelligent commit assistance with API change analysis, but there's a fundamental chicken-and-egg problem:
 - POST-commit tools (go-nextver, retinue) require clean repos to analyze
 - We need the analysis BEFORE creating the commit
 - Users need to understand impact of staged changes to write appropriate commit messages
@@ -19,19 +19,19 @@ The `squire next` workflow needs intelligent commit assistance with API change a
 ### Package Responsibilities
 
 **New Packages:**
-- `squirepkg/gitutils` - Git operations (extract from next_cmd.go)
+- `gompkg/gitutils` - Git operations (extract from next_cmd.go)
   - CachedWorktree management (adapted from go-nextver pattern)
   - Staged file export (NEW implementation)
   - Repository queries (tags, branches, status)
   - Filesystem locking for concurrent access
 
-- `squirepkg/squirescliui` - Terminal UI/display logic (extract from next_cmd.go)
+- `gompkg/gomionscliui` - Terminal UI/display logic (extract from next_cmd.go)
   - Interactive menus
   - Progress indicators
   - Formatted output (tables, boxes, summaries)
   - User input handling
 
-- `squirepkg/precommit` - PRE-commit analysis orchestration
+- `gompkg/precommit` - PRE-commit analysis orchestration
   - Direct calls to analysis functions (no pluggable interface for execution)
   - Result aggregation
   - Cache management
@@ -39,7 +39,7 @@ The `squire next` workflow needs intelligent commit assistance with API change a
   - Common types: AnalysisResult interface, OutputFormat, Verdict
 
 **Renamed/Broadened Packages:**
-- `squirepkg/goutils` - Go language utilities (rename/broaden from gomodutils)
+- `gompkg/goutils` - Go language utilities (rename/broaden from gomodutils)
   - go.mod operations (existing gomodutils functionality)
   - API compatibility analysis (wraps apidiffr)
   - AST-level code analysis
@@ -47,26 +47,26 @@ The `squire next` workflow needs intelligent commit assistance with API change a
   - Cohesive domain: all Go language tooling
 
 **Enhanced Existing Packages:**
-- `squirepkg/commitmsg` - Commit message generation (already exists)
+- `gompkg/commitmsg` - Commit message generation (already exists)
   - Template-driven prompt construction
   - Integration with analysis results
   - Multi-format output support
 
-- `squirepkg/askai` - Generic AI interaction (already exists)
+- `gompkg/askai` - Generic AI interaction (already exists)
   - Provider abstraction
   - Timeout/retry logic
   - No domain coupling
 
 **Keep Separate (No Changes):**
-- `squirepkg/apidiffr` - API compatibility engine (independent library, wrapped by goutils)
-- `squirepkg/retinue` - POST-commit version tagging (different use case)
+- `gompkg/apidiffr` - API compatibility engine (independent library, wrapped by goutils)
+- `gompkg/retinue` - POST-commit version tagging (different use case)
 
 ### Core Workflow
 
 ```
 User stages changes
     ↓
-squire next [module]
+gomion next [module]
     ↓
 next_cmd.go (orchestration only)
     ├─> gitutils.GetStagedFiles()
@@ -79,12 +79,12 @@ next_cmd.go (orchestration only)
     │   └─> goutils.AnalyzeTestSignals() → TestSignalsResult
     ├─> precommit.PersistResults(cacheFile)
     ├─> Format results for display using AnalysisResult.AnalysisSummary(ANSIEscapedFormat)
-    ├─> squirescliui.DisplayVerdictSummary()
+    ├─> gomionscliui.DisplayVerdictSummary()
     ├─> Format results for AI using AnalysisResult.AnalysisSummary(MarkdownFormat)
     ├─> commitmsg.BuildPrompt(template, analyzerResults)
     ├─> askai.Agent.Ask(prompt)
-    ├─> squirescliui.ShowCommitMessageMenu()
-    │   ├─> [v]iew full report → squirescliui.DisplayFullReport()
+    ├─> gomionscliui.ShowCommitMessageMenu()
+    │   ├─> [v]iew full report → gomionscliui.DisplayFullReport()
     │   ├─> [s]plit commits → precommit.SuggestGroupings()
     │   ├─> [e]dit → editor
     │   ├─> [r]egenerate → loop
@@ -96,7 +96,7 @@ next_cmd.go (orchestration only)
 
 ### 1.1 Create gitutils Package
 
-**File:** `squirepkg/gitutils/repo.go`
+**File:** `gompkg/gitutils/repo.go`
 
 Extract from next_cmd.go:
 - Git command execution helpers
@@ -117,7 +117,7 @@ func (r *Repo) FindBaselineTag() (string, error)
 func (r *Repo) CurrentBranch() (string, error)
 ```
 
-**File:** `squirepkg/gitutils/cached_worktree.go`
+**File:** `gompkg/gitutils/cached_worktree.go`
 
 Adapt from go-nextver's pattern:
 ```go
@@ -133,12 +133,12 @@ func (c *CachedWorktree) Close() error
 ```
 
 **Implementation details:**
-- Cache location: `~/.cache/squire/worktrees/<repo-hash>/`
-- Filesystem locking: `~/.cache/squire/locks/<repo-hash>.lock`
+- Cache location: `~/.cache/gomion/worktrees/<repo-hash>/`
+- Filesystem locking: `~/.cache/gomion/locks/<repo-hash>.lock`
 - Clone once, reuse across invocations
 - Fetch latest before each checkout
 
-**File:** `squirepkg/gitutils/export_staged.go` (NEW)
+**File:** `gompkg/gitutils/export_staged.go` (NEW)
 
 This functionality does NOT exist anywhere - must implement:
 
@@ -166,13 +166,13 @@ func ExportStagedFiles(ctx context.Context, args ExportStagedArgs) error
 - New files: Works correctly (they're in index)
 - Renamed files: Appears as delete + add (both handled correctly)
 
-**File:** `squirepkg/gitutils/doterr.go`
+**File:** `gompkg/gitutils/doterr.go`
 
 Drop in from another package - NEVER edit.
 
-### 1.2 Create squirescliui Package
+### 1.2 Create gomionscliui Package
 
-**File:** `squirepkg/squirescliui/menu.go`
+**File:** `gompkg/gomionscliui/menu.go`
 
 Extract from next_cmd.go:
 ```go
@@ -192,7 +192,7 @@ func ShowMenu(args MenuArgs) (rune, error)
 func ShowMenuWithNumbers(args MenuArgs) (int, error)  // Digit-based, not letters
 ```
 
-**File:** `squirepkg/squirescliui/display.go`
+**File:** `gompkg/gomionscliui/display.go`
 
 Extract display formatting from next_cmd.go:
 ```go
@@ -203,7 +203,7 @@ func DisplayFullReport(result precommit.AnalysisResult, w io.Writer)
 func DisplayProgress(message string, w io.Writer)
 ```
 
-**File:** `squirepkg/squirescliui/doterr.go`
+**File:** `gompkg/gomionscliui/doterr.go`
 
 Drop in from another package.
 
@@ -211,7 +211,7 @@ Drop in from another package.
 
 ### 2.1 Common Types and Interface
 
-**File:** `squirepkg/precommit/types.go` (or `squirepkg/goutils/types.go`)
+**File:** `gompkg/precommit/types.go` (or `gompkg/goutils/types.go`)
 
 ```go
 // OutputFormat specifies the output format for analysis summaries
@@ -242,7 +242,7 @@ const (
 
 ### 2.2 API Compatibility Analysis
 
-**File:** `squirepkg/goutils/api_compat.go`
+**File:** `gompkg/goutils/api_compat.go`
 
 Wraps existing apidiffr package with bespoke result type:
 
@@ -319,7 +319,7 @@ func AnalyzeAPICompatibility(ctx context.Context, baseline, staged dt.DirPath) (
 
 ### 2.3 AST Analysis
 
-**File:** `squirepkg/goutils/ast_diff.go`
+**File:** `gompkg/goutils/ast_diff.go`
 
 Analyzes Go code changes at AST level with bespoke result type:
 
@@ -405,7 +405,7 @@ func AnalyzeASTDiff(ctx context.Context, baseline, staged dt.DirPath) (ASTDiffRe
 
 ### 2.4 Test Signal Analysis
 
-**File:** `squirepkg/goutils/test_signals.go`
+**File:** `gompkg/goutils/test_signals.go`
 
 Detects test changes to inform commit messages with bespoke result type:
 
@@ -472,7 +472,7 @@ func AnalyzeTestSignals(ctx context.Context, baseline, staged dt.DirPath) (TestS
 
 ### 3.1 Analysis Coordinator
 
-**File:** `squirepkg/precommit/analyze.go`
+**File:** `gompkg/precommit/analyze.go`
 
 ```go
 type Results struct {
@@ -612,7 +612,7 @@ func (r Results) FormatForTerminal() string {
 }
 ```
 
-**File:** `squirepkg/precommit/persist.go`
+**File:** `gompkg/precommit/persist.go`
 
 ```go
 func persistResult(result *Results, cacheKey string) error
@@ -620,13 +620,13 @@ func loadPersistedResult(cacheKey string) (*Results, error)
 func clearPersistedResult(cacheKey string) error
 ```
 
-Cache location: `~/.cache/squire/analysis/<module-hash>-<staged-hash>.json`
+Cache location: `~/.cache/gomion/analysis/<module-hash>-<staged-hash>.json`
 
-Purpose: Allow user to exit `squire next`, do other work, return later and resume with same analysis.
+Purpose: Allow user to exit `gomion next`, do other work, return later and resume with same analysis.
 
 ### 3.2 Commit Grouping Suggestions
 
-**File:** `squirepkg/precommit/grouping.go`
+**File:** `gompkg/precommit/grouping.go`
 
 ```go
 type CommitGroup struct {
@@ -666,7 +666,7 @@ func InteractiveRestage(groups []CommitGroup, repo *gitutils.Repo) error {
 
 ### 4.1 Prompt Templates
 
-**File:** `squirepkg/commitmsg/templates/default.tmpl`
+**File:** `gompkg/commitmsg/templates/default.tmpl`
 
 ```
 Generate a git commit message for these staged changes.
@@ -694,7 +694,7 @@ Branch: {{ .Branch }}
 {{ .StagedDiff }}
 ```
 
-**File:** `squirepkg/commitmsg/templates/breaking.tmpl`
+**File:** `gompkg/commitmsg/templates/breaking.tmpl`
 
 ```
 Generate a git commit message for these BREAKING CHANGES.
@@ -717,7 +717,7 @@ Include migration guidance if applicable.
 
 ### 4.2 Template Rendering
 
-**File:** `squirepkg/commitmsg/generator.go` (update existing)
+**File:** `gompkg/commitmsg/generator.go` (update existing)
 
 ```go
 import "text/template"
@@ -761,8 +761,8 @@ func BuildPrompt(req Request, analysis *precommit.AnalysisResult) (string, error
 ```
 
 **Template customization:**
-- User can override templates in `~/.config/squire/templates/`
-- Project can override in `.squire/templates/`
+- User can override templates in `~/.config/gomion/templates/`
+- Project can override in `.gomion/templates/`
 - Hierarchy: project > user > built-in
 
 ## Phase 5: Integration with next_cmd.go
@@ -810,9 +810,9 @@ func (c *NextCmd) handleCommitMessageActions(
     results *precommit.Results,
 ) error {
     for {
-        choice, err := squirescliui.ShowMenu(squirescliui.MenuArgs{
+        choice, err := gomionscliui.ShowMenu(gomionscliui.MenuArgs{
             Prompt: "What would you like to do?",
-            Options: []squirescliui.MenuOption{
+            Options: []gomionscliui.MenuOption{
                 {Key: 'y', Label: "Use this commit message"},
                 {Key: 'e', Label: "Edit in editor"},
                 {Key: 'r', Label: "Regenerate with AI"},
@@ -831,7 +831,7 @@ func (c *NextCmd) handleCommitMessageActions(
         case 'r':
             message, _ = c.callClaudeForCommitMsg(moduleDir, results)
         case 'v':
-            squirescliui.DisplayFullReport(*results, c.Writer)
+            gomionscliui.DisplayFullReport(*results, c.Writer)
         case 's':
             return c.handleMultiCommitFlow(moduleDir, results)
         case 'b':
@@ -871,7 +871,7 @@ All the git logic, display logic, and analysis logic is now in dedicated package
 5. Unit tests for gitutils
 
 ### Phase 2: UI Extraction (1 day)
-1. Create squirescliui package
+1. Create gomionscliui package
 2. Extract display logic from next_cmd.go
 3. Implement menu system with numbers (not letters)
 4. Unit tests for display functions
@@ -911,7 +911,7 @@ All the git logic, display logic, and analysis logic is now in dedicated package
 4. Polish UX based on testing
 
 ### Phase 8: Testing & Polish (1 day)
-1. Integration tests with go-dt, go-cliutil, squire
+1. Integration tests with go-dt, go-cliutil, gomion
 2. Test with breaking changes, compatible changes, no baseline
 3. Test multi-commit workflows
 4. Test template customization
@@ -923,19 +923,19 @@ All the git logic, display logic, and analysis logic is now in dedicated package
 
 ### New Files (Create)
 ```
-squirepkg/gitutils/
+gompkg/gitutils/
   ├── repo.go                    - Repository operations
   ├── cached_worktree.go         - Safe baseline checkouts (from go-nextver pattern)
   ├── export_staged.go           - NEW staged file export (git show :path)
   ├── lock.go                    - Filesystem locking
   └── doterr.go                  - Error handling (drop-in)
 
-squirepkg/squirescliui/
+gompkg/gomionscliui/
   ├── menu.go                    - Interactive menus (number-based)
   ├── display.go                 - Formatted output
   └── doterr.go                  - Error handling (drop-in)
 
-squirepkg/goutils/               - Rename/broaden from gomodutils
+gompkg/goutils/               - Rename/broaden from gomodutils
   ├── mod_*.go                   - Existing go.mod operations (from gomodutils)
   ├── types.go                   - AnalysisResult interface, OutputFormat, Verdict
   ├── api_compat.go              - API compatibility analysis (wraps apidiffr)
@@ -943,14 +943,14 @@ squirepkg/goutils/               - Rename/broaden from gomodutils
   ├── test_signals.go            - Test signal detection
   └── doterr.go                  - Error handling (drop-in)
 
-squirepkg/precommit/
+gompkg/precommit/
   ├── types.go                   - Results struct, common types
   ├── analyze.go                 - Analysis coordinator (direct function calls)
   ├── persist.go                 - Result persistence
   ├── grouping.go                - Commit grouping suggestions
   └── doterr.go                  - Error handling (drop-in)
 
-squirepkg/commitmsg/templates/
+gompkg/commitmsg/templates/
   ├── default.tmpl               - Standard commit message template
   ├── breaking.tmpl              - Breaking change template
   └── grouping.tmpl              - Multi-commit template
@@ -958,21 +958,21 @@ squirepkg/commitmsg/templates/
 
 ### Modified Files
 ```
-squirepkg/gomodutils/ → squirepkg/goutils/
+gompkg/gomodutils/ → gompkg/goutils/
   - Rename package (or keep name but broaden scope)
   - Add analysis functions: api_compat.go, ast_diff.go, test_signals.go
   - Add types.go for AnalysisResult interface and OutputFormat
   - Existing mod_*.go files stay (go.mod operations)
 
-squirepkg/squirecmds/next_cmd.go
+gompkg/gomioncmds/next_cmd.go
   - Extract git operations → gitutils
-  - Extract display logic → squirescliui
+  - Extract display logic → gomionscliui
   - Call precommit.Analyze() directly (no analyzer list)
   - Use Results.FormatForAI() and Results.FormatForTerminal()
   - Keep only orchestration
   - Add multi-commit flow handling
 
-squirepkg/commitmsg/generator.go
+gompkg/commitmsg/generator.go
   - Add template rendering
   - Support precommit.Results parameter
   - Support template customization
@@ -980,9 +980,9 @@ squirepkg/commitmsg/generator.go
 
 ### Unchanged Files (Reference Only)
 ```
-squirepkg/apidiffr/              - Independent library (wrapped by goutils)
-squirepkg/retinue/               - POST-commit tagging (different use case)
-squirepkg/askai/                 - Generic AI interaction (already refactored)
+gompkg/apidiffr/              - Independent library (wrapped by goutils)
+gompkg/retinue/               - POST-commit tagging (different use case)
+gompkg/askai/                 - Generic AI interaction (already refactored)
 ```
 
 ## Edge Cases & Error Handling
@@ -1028,12 +1028,12 @@ squirepkg/askai/                 - Generic AI interaction (already refactored)
 - Analysis based on what will be committed
 - Unstaged changes ignored (expected)
 
-### 6. Concurrent Squire Invocations
-**Challenge:** User runs `squire next` in two terminals
+### 6. Concurrent Gomion Invocations
+**Challenge:** User runs `gomion next` in two terminals
 
 **Solution:**
 - Filesystem locking in gitutils (from go-nextver pattern)
-- Lock file: `~/.cache/squire/locks/<repo-hash>.lock`
+- Lock file: `~/.cache/gomion/locks/<repo-hash>.lock`
 - Second invocation waits or fails gracefully
 
 ### 7. Cache Staleness
@@ -1100,7 +1100,7 @@ squirepkg/askai/                 - Generic AI interaction (already refactored)
 
 This implementation makes go-nextver obsolete for the PRE-commit use case:
 - **Before:** go-nextver analyzed committed code (POST-commit)
-- **After:** squire analyzes staged changes (PRE-commit)
+- **After:** gomion analyzes staged changes (PRE-commit)
 - **Pattern reuse:** CachedWorktree concept proven in go-nextver
 - **New capability:** ExportStagedFiles extends pattern to uncommitted changes
 
@@ -1110,5 +1110,5 @@ This implementation makes go-nextver obsolete for the PRE-commit use case:
 
 **Once complete:**
 - go-nextver can be archived/deprecated
-- All functionality integrated into squire with better UX
+- All functionality integrated into gomion with better UX
 - Single tool for entire workflow: stage → analyze → commit → tag → release

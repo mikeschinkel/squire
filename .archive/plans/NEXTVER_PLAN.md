@@ -2,16 +2,16 @@
 
 ## Overview
 
-This document analyzes the relationship between the `go-tuipoc` proof-of-concept and `squire`, identifying what functionality has been migrated and what remains to be integrated.
+This document analyzes the relationship between the `go-tuipoc` proof-of-concept and `gomion`, identifying what functionality has been migrated and what remains to be integrated.
 
 ## Executive Summary
 
-**go-tuipoc** and **squire** serve complementary purposes:
+**go-tuipoc** and **gomion** serve complementary purposes:
 
 - **go-tuipoc**: Determines the **next semver version** for a **single module** based on API changes
-- **squire**: Orchestrates **release workflows** across a **multi-repo dependency graph**
+- **gomion**: Orchestrates **release workflows** across a **multi-repo dependency graph**
 
-**Status**: Core shared utilities have been migrated (apidiffr, gitutils, modutils), but the version determination logic remains in go-tuipoc and needs to be integrated into squire.
+**Status**: Core shared utilities have been migrated (apidiffr, gitutils, modutils), but the version determination logic remains in go-tuipoc and needs to be integrated into gomion.
 
 ## What go-tuipoc Does
 
@@ -21,7 +21,7 @@ This document analyzes the relationship between the `go-tuipoc` proof-of-concept
 
 ### Core Functionality
 
-**Files unique to go-tuipoc** (not yet in squire):
+**Files unique to go-tuipoc** (not yet in gomion):
 
 1. **`analyzer.go`** - Main analysis orchestration
    - Coordinates the entire analysis workflow
@@ -86,15 +86,15 @@ Recommendation: v2.0.0
 Reason: Detected breaking API changes
 ```
 
-## What squire Does
+## What gomion Does
 
-**Repository**: `~/Projects/squire`
+**Repository**: `~/Projects/gomion`
 
 **Purpose**: Orchestrate releases across multiple interdependent repositories by determining which module should be processed next in the dependency graph.
 
 ### Core Functionality
 
-**Package: `squirepkg/retinue/`**
+**Package: `gompkg/retinue/`**
 
 1. **`engine.go`** - Multi-repo orchestration
    - Builds dependency graph across multiple repos
@@ -156,10 +156,10 @@ Leaf-most dependency found:
 
 ## Shared Components (Already Migrated)
 
-These packages exist in both go-tuipoc and squire:
+These packages exist in both go-tuipoc and gomion:
 
 ### 1. apidiffr (API Diffing)
-**Location in squire**: `squirepkg/apidiffr/`
+**Location in gomion**: `gompkg/apidiffr/`
 
 **Purpose**: Compare Go package APIs between two versions and detect breaking changes
 
@@ -168,10 +168,10 @@ These packages exist in both go-tuipoc and squire:
 - `report.go` - Diff report formatting
 - `doterr.go` - Error handling
 
-**Status**: ✅ Fully migrated to squire
+**Status**: ✅ Fully migrated to gomion
 
 ### 2. gitutils (Git Operations)
-**Location in squire**: `squirepkg/gitutils/`
+**Location in gomion**: `gompkg/gitutils/`
 
 **Purpose**: Git repository operations (tags, status, remotes, etc.)
 
@@ -182,10 +182,10 @@ These packages exist in both go-tuipoc and squire:
 - `doterr.go` - Error handling
 - `dev_unix.go`, `dev_other.go` - Platform-specific helpers
 
-**Status**: ✅ Fully migrated to squire
+**Status**: ✅ Fully migrated to gomion
 
 ### 3. modutils (Module Utilities)
-**Location in squire**: `squirepkg/modutils/`
+**Location in gomion**: `gompkg/modutils/`
 
 **Purpose**: go.mod file parsing and dependency analysis
 
@@ -197,7 +197,7 @@ These packages exist in both go-tuipoc and squire:
 - `versions.go` - Version parsing and validation
 - `path_version.go` - Module path/version utilities
 
-**Status**: ✅ Fully migrated to squire
+**Status**: ✅ Fully migrated to gomion
 
 ## What Remains in go-tuipoc
 
@@ -235,24 +235,24 @@ These components are **unique to go-tuipoc** and provide the "what version shoul
 
 ### Phase 1: Copy Core Logic (High Priority)
 
-**Goal**: Bring version determination into squire
+**Goal**: Bring version determination into gomion
 
 **Tasks**:
-1. Copy `analyzer.go` → `squirepkg/tuipoc/analyzer.go`
-2. Copy `baseline.go` → `squirepkg/tuipoc/baseline.go`
-3. Copy `judgment.go` → `squirepkg/tuipoc/judgment.go`
-4. Copy `result.go` → `squirepkg/tuipoc/result.go`
-5. Copy `precondition.go` → `squirepkg/tuipoc/precondition.go`
-6. Copy `review/tests.go` → `squirepkg/tuipoc/review/tests.go`
-7. Update imports to use squire's existing apidiffr, gitutils, modutils
+1. Copy `analyzer.go` → `gompkg/tuipoc/analyzer.go`
+2. Copy `baseline.go` → `gompkg/tuipoc/baseline.go`
+3. Copy `judgment.go` → `gompkg/tuipoc/judgment.go`
+4. Copy `result.go` → `gompkg/tuipoc/result.go`
+5. Copy `precondition.go` → `gompkg/tuipoc/precondition.go`
+6. Copy `review/tests.go` → `gompkg/tuipoc/review/tests.go`
+7. Update imports to use gomion's existing apidiffr, gitutils, modutils
 
 **Integration Point**:
-- Add `AnalyzeVersion()` function that squire's engine can call
+- Add `AnalyzeVersion()` function that gomion's engine can call
 - When engine determines "process this module next", also determine "bump to version X.Y.Z"
 
-### Phase 2: Integrate with squire process Command (High Priority)
+### Phase 2: Integrate with gomion process Command (High Priority)
 
-**Goal**: Show version recommendation in `squire process` output
+**Goal**: Show version recommendation in `gomion process` output
 
 **Current Output**:
 ```
@@ -278,13 +278,13 @@ Leaf-most dependency found:
 - Add version fields to `retinue.EngineResult`
 - Display version recommendation in `process_cmd.go`
 
-### Phase 3: Add squire version Command (Medium Priority)
+### Phase 3: Add gomion version Command (Medium Priority)
 
 **Goal**: Provide standalone version analysis command
 
 **Command**:
 ```bash
-squire version [module-dir]
+gomion version [module-dir]
 ```
 
 **Output**:
@@ -312,7 +312,7 @@ Reason: Added new exported symbols, no breaking changes
 ```
 
 **Implementation**:
-- Create `squirepkg/squirecmds/version_cmd.go`
+- Create `gompkg/gomioncmds/version_cmd.go`
 - Wrap `tuipoc.AnalyzeVersion()` with CLI interface
 - Add formatting for human-readable output
 - Support `--json` flag for machine-readable output
@@ -329,7 +329,7 @@ See go-tuipoc's PLAN.md for detailed specification.
 
 ## Key Differences in Purpose
 
-| Aspect | go-tuipoc | squire |
+| Aspect | go-tuipoc | gomion |
 |--------|-----------|--------|
 | **Scope** | Single module | Multi-repo workspace |
 | **Question** | What version? | Which module next? |
@@ -339,7 +339,7 @@ See go-tuipoc's PLAN.md for detailed specification.
 | **Workflow** | Analysis → Decision | Orchestration → Coordination |
 
 Both are needed for a complete release workflow:
-1. **squire** determines **which** module to release next
+1. **gomion** determines **which** module to release next
 2. **tuipoc** (integrated) determines **what version** to use
 3. User tags and releases
 4. Repeat
@@ -347,7 +347,7 @@ Both are needed for a complete release workflow:
 ## Dependency Flow
 
 ```
-go-tuipoc (standalone)                 squire (production)
+go-tuipoc (standalone)                 gomion (production)
 ├── analyzer.go ─────────────────┐     ├── retinue/
 │   ├── baseline.go              │     │   ├── engine.go ←──── NEEDS INTEGRATION
 │   ├── judgment.go              │     │   ├── go_mod_graph.go
@@ -369,26 +369,26 @@ go-tuipoc (standalone)                 squire (production)
 - Verify version recommendations match go-tuipoc
 
 ### Phase 2 Testing
-- Test `squire process` shows correct version recommendations
+- Test `gomion process` shows correct version recommendations
 - Test with modules that have no baseline (v0.1.0)
 - Test with modules that have breaking changes (MAJOR)
 - Test with modules that are in-flux (withhold verdict)
 
 ### Phase 3 Testing
-- Test `squire version` command standalone
+- Test `gomion version` command standalone
 - Test JSON output format
 - Test error handling for invalid modules
 
 ## Migration Checklist
 
 ### Immediate (Phase 1)
-- [ ] Create `squirepkg/tuipoc/` package
+- [ ] Create `gompkg/tuipoc/` package
 - [ ] Copy analyzer.go and adapt imports
 - [ ] Copy baseline.go and adapt imports
 - [ ] Copy judgment.go and adapt imports
 - [ ] Copy result.go and adapt imports
 - [ ] Copy precondition.go and adapt imports
-- [ ] Create `squirepkg/tuipoc/review/` package
+- [ ] Create `gompkg/tuipoc/review/` package
 - [ ] Copy review/tests.go and adapt imports
 - [ ] Write unit tests for migrated code
 - [ ] Write integration tests
@@ -401,10 +401,10 @@ go-tuipoc (standalone)                 squire (production)
 - [ ] Update documentation
 
 ### Medium Term (Phase 3)
-- [ ] Create squire version command
+- [ ] Create gomion version command
 - [ ] Implement human-readable output
 - [ ] Implement JSON output
-- [ ] Add to squire help documentation
+- [ ] Add to gomion help documentation
 
 ### Future (Phase 4)
 - [ ] Implement stability contract validation
@@ -412,25 +412,25 @@ go-tuipoc (standalone)                 squire (production)
 
 ## go-tuipoc Repository Fate
 
-Once the core version determination logic is integrated into squire, the go-tuipoc repository can be:
+Once the core version determination logic is integrated into gomion, the go-tuipoc repository can be:
 
 **Option 1**: Archive it
 - Mark as archived on GitHub
-- Reference in squire docs as "proof-of-concept that became squire's version analysis"
+- Reference in gomion docs as "proof-of-concept that became gomion's version analysis"
 
 **Option 2**: Keep as experimental ground
 - Continue using for prototyping new version analysis features
-- Migrate proven features to squire when ready
+- Migrate proven features to gomion when ready
 
 **Option 3**: Delete it
 - Core value has been extracted
 - No longer needed
 
-**Recommendation**: Archive it with a clear README pointing to squire for the production version.
+**Recommendation**: Archive it with a clear README pointing to gomion for the production version.
 
 ## References
 
 - go-tuipoc: `~/Projects/go-pkgs/go-tuipoc`
-- squire: `~/Projects/squire`
+- gomion: `~/Projects/gomion`
 - Semver specification: https://semver.org/
 - Go modules documentation: https://go.dev/ref/mod

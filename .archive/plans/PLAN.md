@@ -1,11 +1,11 @@
 # Refactor Plan: Reusable Leaf Selection + Verdict Engine for `plan` and `process`
 
 ## Goal
-Make `squire plan` reuse a non-streaming engine that selects the single deepest leaf module/repo (with no in-flux dependents), while keeping current `plan` output behavior. Expose the same engine for a minimal `process` command to get leaf + verdict.
+Make `gomion plan` reuse a non-streaming engine that selects the single deepest leaf module/repo (with no in-flux dependents), while keeping current `plan` output behavior. Expose the same engine for a minimal `process` command to get leaf + verdict.
 
 ## Key Constraints
 - Use terms **Requires/Dependencies** (avoid “Deps”).
-- Do **not** call or modify `go-tuipoc`; migrate needed logic into `squire` (likely under `retinue`). Leave `go-tuipoc` intact.
+- Do **not** call or modify `go-tuipoc`; migrate needed logic into `gomion` (likely under `retinue`). Leave `go-tuipoc` intact.
 - Verdict enum: `breaking change` (objective), `likely breaking change` (strong signals, not 100% certain), `maybe not a breaking change`.
 - In-flux if: dirty working tree (untracked/staged/unstaged), go.mod has replace directives, or commit not tagged/pushed. Special case: tagged locally but not pushed → stop with “Didn’t you mean to push this?” so tagged ⇒ pushed assumption holds downstream.
 - `plan` output must remain compatible; `process` should be minimal and delegate to engine.
@@ -27,7 +27,7 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
    - go.mod contains replace → in-flux.
    - Not tagged/pushed → in-flux; tagged-but-unpushed triggers warning/stop.
 3) **Verdict Logic Migration**
-   - Move needed tuipoc logic into `squire` (e.g., under `retinue`); do not call/modify `go-tuipoc` package.
+   - Move needed tuipoc logic into `gomion` (e.g., under `retinue`); do not call/modify `go-tuipoc` package.
    - Produce enum: `breaking change` / `likely breaking change` / `maybe not a breaking change`.
 4) **Streaming Hooks**
    - Engine accepts optional writer/callback for progress; defaults to silent/non-streaming.
@@ -38,11 +38,11 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
    - Minimal command file (similar size to `plan_cmd.go`): call engine, use returned leaf + verdict (no noisy output).
 
 ## Key Files to Touch
-- `squirepkg/squirecmds/plan_cmd.go` (rewire to engine; keep output)
-- `squirepkg/retinue/plan.go` (invoke engine; remove duplicated logic)
-- `squirepkg/retinue/go_mod_graph.go`, `go_module.go`, `repo.go` (leaf selection, ordering)
+- `gompkg/gomioncmds/plan_cmd.go` (rewire to engine; keep output)
+- `gompkg/retinue/plan.go` (invoke engine; remove duplicated logic)
+- `gompkg/retinue/go_mod_graph.go`, `go_module.go`, `repo.go` (leaf selection, ordering)
 - New/updated helpers in `retinue` for git/replace/in-flux and verdict logic (migrated from tuipoc)
-- Minimal `squirepkg/squirecmds/process_cmd.go` (new command; minimal surface)
+- Minimal `gompkg/gomioncmds/process_cmd.go` (new command; minimal surface)
 
 ## Notes/Risks
 - Preserve `plan` output compatibility; if any edge case makes parity hard, discuss before changing formatting.
@@ -56,12 +56,12 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
 ### ✅ Completed
 
 1. **Copied packages from go-tuipoc**:
-   - `squirepkg/apidiffr/` - API diff analysis for breaking change detection
-   - `squirepkg/gitutils/` - Git utilities (IsDirty, UpstreamState, Tags, etc.)
-   - `squirepkg/modutils/` - Module utilities (AnalyzeStatus, in-flux detection, replace directive handling)
+   - `gompkg/apidiffr/` - API diff analysis for breaking change detection
+   - `gompkg/gitutils/` - Git utilities (IsDirty, UpstreamState, Tags, etc.)
+   - `gompkg/modutils/` - Module utilities (AnalyzeStatus, in-flux detection, replace directive handling)
    - All packages compile successfully with `make build`
 
-2. **Engine API Design** (`squirepkg/retinue/engine.go`):
+2. **Engine API Design** (`gompkg/retinue/engine.go`):
    - Created `VerdictType` enum: `breaking`, `likely_breaking`, `maybe_not_breaking`, `withheld`, `unknown`
    - Created `EngineResult` struct with: LeafModuleDir, LeafRepoDir, LeafRepoModules, LocalTagNotPushed, Verdict, VerdictReason, InFluxDependencies
    - Created `EngineArgs` struct with: StartDir, RepoDirs, Config, Logger, Writer
@@ -108,7 +108,7 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
    - Return appropriate VerdictType with reasoning
 
 5. **Wire plan_cmd.go**:
-   - Refactor `Plan()` in `squirepkg/squirecmds/plan_cmd.go` to call engine
+   - Refactor `Plan()` in `gompkg/gomioncmds/plan_cmd.go` to call engine
    - Maintain current output format
    - Pass streaming hook for progress messages
 
@@ -133,22 +133,22 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
 
 ### 🗂️ New Files Created
 
-- `squirepkg/apidiffr/diff.go`
-- `squirepkg/apidiffr/report.go`
-- `squirepkg/apidiffr/doterr.go`
-- `squirepkg/gitutils/repo.go`
-- `squirepkg/gitutils/upstream_state.go`
-- `squirepkg/gitutils/errors.go`
-- `squirepkg/gitutils/doterr.go`
-- `squirepkg/gitutils/dev_unix.go`
-- `squirepkg/gitutils/dev_other.go`
-- `squirepkg/modutils/module.go`
-- `squirepkg/modutils/deps.go`
-- `squirepkg/modutils/path_version.go`
-- `squirepkg/modutils/replace.go`
-- `squirepkg/modutils/require.go`
-- `squirepkg/modutils/versions.go`
-- `squirepkg/retinue/engine.go`
+- `gompkg/apidiffr/diff.go`
+- `gompkg/apidiffr/report.go`
+- `gompkg/apidiffr/doterr.go`
+- `gompkg/gitutils/repo.go`
+- `gompkg/gitutils/upstream_state.go`
+- `gompkg/gitutils/errors.go`
+- `gompkg/gitutils/doterr.go`
+- `gompkg/gitutils/dev_unix.go`
+- `gompkg/gitutils/dev_other.go`
+- `gompkg/modutils/module.go`
+- `gompkg/modutils/deps.go`
+- `gompkg/modutils/path_version.go`
+- `gompkg/modutils/replace.go`
+- `gompkg/modutils/require.go`
+- `gompkg/modutils/versions.go`
+- `gompkg/retinue/engine.go`
 
 ### 🔧 Dependencies Added
 
@@ -172,11 +172,11 @@ Make `squire plan` reuse a non-streaming engine that selects the single deepest 
    - **Priority**: Low - doesn't break builds but creates confusion
 
 ### TODO:
-☒ Read and understand current implementation in retinue/plan.go and squirecmds/plan_cmd.go
+☒ Read and understand current implementation in retinue/plan.go and gomioncmds/plan_cmd.go
 ☒ Read retinue/go_mod_graph.go, go_module.go, repo.go to understand existing graph building
-☒ Copy apidiffr package from go-tuipoc into squirepkg/apidiffr/
-☒ Copy relevant gitutils functions (IsDirty, UpstreamState, Tags, etc) into squirepkg/gitutils/
-☒ Copy relevant modutils functions (AnalyzeStatus, in-flux detection) into squirepkg/modutils/
+☒ Copy apidiffr package from go-tuipoc into gompkg/apidiffr/
+☒ Copy relevant gitutils functions (IsDirty, UpstreamState, Tags, etc) into gompkg/gitutils/
+☒ Copy relevant modutils functions (AnalyzeStatus, in-flux detection) into gompkg/modutils/
 ☒ Design engine API: input/output structs, streaming hooks interface
 ☒ Fix imports in copied packages (apidiffr, gitutils, modutils)
 ☒ Test that copied packages compile correctly

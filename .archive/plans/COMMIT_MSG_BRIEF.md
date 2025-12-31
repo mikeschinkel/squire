@@ -1,15 +1,15 @@
-# Squire — LLM Commit Message Generation (CLI MVP)  
+# Gomion — LLM Commit Message Generation (CLI MVP)  
 **Implementation brief for Codex**
 
 Date: 2025-12-23  
-Scope: Add an MVP feature to Squire that generates a git commit message from the **staged diff** by invoking an installed LLM CLI (**Claude Code** and/or **OpenAI Codex CLI**) from Go. This MVP must be provider-agnostic via config and internal interfaces, and must be easy to evolve later to direct APIs and/or a local LLM server.
+Scope: Add an MVP feature to Gomion that generates a git commit message from the **staged diff** by invoking an installed LLM CLI (**Claude Code** and/or **OpenAI Codex CLI**) from Go. This MVP must be provider-agnostic via config and internal interfaces, and must be easy to evolve later to direct APIs and/or a local LLM server.
 
 ---
 
 ## 0) Goals and non-goals
 
 ### Goals
-- **Generate a draft commit message** for the currently-selected repo (leaf repo in `squire next`) based only on **staged** changes.
+- **Generate a draft commit message** for the currently-selected repo (leaf repo in `gomion next`) based only on **staged** changes.
 - Use **installed LLM CLIs** for fastest MVP:
   - `claude` (Claude Code CLI)
   - `codex` (OpenAI Codex CLI)
@@ -27,9 +27,9 @@ Scope: Add an MVP feature to Squire that generates a git commit message from the
 
 ---
 
-## 1) UX: where this appears in Squire
+## 1) UX: where this appears in Gomion
 
-### 1.1 Interactive flow: `squire next`
+### 1.1 Interactive flow: `gomion next`
 Your existing interactive prompt shows:
 
 ```
@@ -42,14 +42,14 @@ Add a new option:
 
 Suggested UX:
 1. User picks `m`.
-2. Squire computes staged diff (and lightweight status context).
-3. Squire calls the configured LLM driver.
-4. Squire shows:
+2. Gomion computes staged diff (and lightweight status context).
+3. Gomion calls the configured LLM driver.
+4. Gomion shows:
    - Subject line
    - Body
 5. Provide follow-up options:
    - `[e]dit` → opens `$EDITOR` on a temp file containing the message
-   - `[w]rite` → writes message to `.git/SQUIRE_COMMITMSG` (or a temp file) for later `git commit -F ...`
+   - `[w]rite` → writes message to `.git/GOMION_COMMITMSG` (or a temp file) for later `git commit -F ...`
    - `[b]ack` → returns to the options menu
 
 **Important behavior:** ignore untracked/un-staged files by default. Only staged diff is considered unless config enables otherwise.
@@ -57,16 +57,16 @@ Suggested UX:
 ### 1.2 Optional non-interactive subcommand (recommended)
 Add a hidden/low-profile command for scripting and for future CI integration:
 
-- `squire commitmsg [--repo <dir>] [--format json|text] [--output <file>]`
+- `gomion commitmsg [--repo <dir>] [--format json|text] [--output <file>]`
 
-This can be used internally by `squire next` or independently. It also makes unit/integration testing easier.
+This can be used internally by `gomion next` or independently. It also makes unit/integration testing easier.
 
 ---
 
 ## 2) Configuration
 
 ### 2.1 Config structure
-Add an `ai_provider` section in Squire config (user-level and/or repo-level override). JSON example:
+Add an `ai_provider` section in Gomion config (user-level and/or repo-level override). JSON example:
 
 ```jsonc
 {
@@ -83,7 +83,7 @@ Add an `ai_provider` section in Squire config (user-level and/or repo-level over
 
     // Optional: a file containing the system prompt / agent prompt
     // (You said you already have a detailed Claude agent prompt; point to it here.)
-    "system_prompt_file": "~/.config/squire/prompts/commitmsg_agent.txt",
+    "system_prompt_file": "~/.config/gomion/prompts/commitmsg_agent.txt",
 
     // Prompt safety / limits
     "max_diff_bytes": 200000,
@@ -116,7 +116,7 @@ Add an `ai_provider` section in Squire config (user-level and/or repo-level over
 
 Create a small internal package, e.g.:
 
-- `squirepkg/commitmsg`
+- `gompkg/commitmsg`
 
 ### 3.1 Types
 ```go
@@ -303,7 +303,7 @@ To “piggyback” on subscription auth:
 
 ---
 
-## 8) Integration into `squire next` interactive menu
+## 8) Integration into `gomion next` interactive menu
 
 ### 8.1 Add menu option
 In the menu loop that currently handles:
@@ -317,14 +317,14 @@ Add:
 
 ### 8.2 Implementation steps for the handler
 When user chooses `m`:
-1. Determine current repo dir (leaf-most repo reported by `squire next`).
+1. Determine current repo dir (leaf-most repo reported by `gomion next`).
 2. Collect staged diff and branch.
 3. If no staged changes:
    - print “No staged changes; nothing to generate.”
 4. Call `llmcommit.NewGenerator(cfg)` and then `Generate(...)`.
 5. Display result and offer follow-on actions:
    - `[e]dit`: write a temp file and open `$EDITOR`
-   - `[w]rite`: write to `.git/SQUIRE_COMMITMSG`
+   - `[w]rite`: write to `.git/GOMION_COMMITMSG`
    - `[b]ack`
 
 ### 8.3 Editing behavior
@@ -365,25 +365,25 @@ Add/modify files (names are suggestions; adapt to repo conventions):
   - `type LLMConfig struct { ... }`
   - defaults + validation
 
-- `squirepkg/commitmsg/types.go`  
+- `gompkg/commitmsg/types.go`  
   - `Request`, `Result`, `Generator`
 
-- `squirepkg/commitmsg/factory.go`  
+- `gompkg/commitmsg/factory.go`  
   - `NewGenerator(cfg LLMConfig)`
 
-- `squirepkg/commitmsg/claude_cli.go`  
+- `gompkg/commitmsg/claude_cli.go`  
   - `ClaudeCLIGenerator`
 
-- `squirepkg/commitmsg/codex_cli.go`  
+- `gompkg/commitmsg/codex_cli.go`  
   - `CodexCLIGenerator`
 
 - `gitutil/staged.go` (or wherever git helpers live)  
   - staged diff and staged files retrieval
 
-- `cmd/squire/next.go` (or wherever the interactive loop lives)  
+- `cmd/gomion/next.go` (or wherever the interactive loop lives)  
   - add menu option + handler
 
-- `cmd/squire/commitmsg.go` (optional command)
+- `cmd/gomion/commitmsg.go` (optional command)
 
 - `osutil/editor.go`  
   - `OpenInEditor`
@@ -392,7 +392,7 @@ Add/modify files (names are suggestions; adapt to repo conventions):
 
 ## 11) Acceptance criteria (definition of done)
 
-1. With staged changes in a repo, running `squire next`, choosing `m` produces a commit message draft.
+1. With staged changes in a repo, running `gomion next`, choosing `m` produces a commit message draft.
 2. Draft is based on **staged diff only**.
 3. Provider is selectable by config:
    - `claude_cli` works if `claude` is installed and authenticated
@@ -413,10 +413,10 @@ Add/modify files (names are suggestions; adapt to repo conventions):
 1. Add config struct + loading + defaults.
 2. Add `commitmsg` package with types + factory.
 3. Implement Claude CLI generator (most deterministic with JSON schema support).
-4. Integrate into `squire next` menu with `[m]essage`.
+4. Integrate into `gomion next` menu with `[m]essage`.
 5. Add editor flow (`[e]dit`) + write flow (`[w]rite`).
 6. Implement Codex CLI generator as alternative provider.
-7. Add optional `squire commitmsg` subcommand.
+7. Add optional `gomion commitmsg` subcommand.
 8. Add tests and docs.
 
 ---
@@ -432,8 +432,8 @@ In a repo with staged changes:
   - pipe prompt+diff: `... | codex exec - --cd . --color never --output-last-message /tmp/msg`
   - verify output in `/tmp/msg`
 
-Then test in Squire:
-- run `squire next`
+Then test in Gomion:
+- run `gomion next`
 - choose `m`
 - choose `e` to edit
 - choose `w` to write to commit message file

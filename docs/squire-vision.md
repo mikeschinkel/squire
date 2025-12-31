@@ -1,17 +1,17 @@
-# Squire Vision Document – Long-Term Vision (Non‑v0 Scope)
+# Gomion Vision Document – Long-Term Vision (Non‑v0 Scope)
 
-This Vision document is meant to **replace all prior informal Squire design notes** (the four earlier Squire docs and the standalone `doterr` PRD) for everything **outside the v0 PRD**.
+This Vision document is meant to **replace all prior informal Gomion design notes** (the four earlier Gomion docs and the standalone `doterr` PRD) for everything **outside the v0 PRD**.
 
 - The **v0 PRD** covers only the initial `scan` / `init` functionality and the minimal `modules{}` config needed to support it.
 - This **Vision** captures the broader problem space, long‑term goals, design constraints, and feature families we intend to tackle in **future PRDs**.
 
-It is intentionally descriptive, not prescriptive at the level of flags and field names (that is PRD territory). It should be read as the high‑level map for where Squire is going.
+It is intentionally descriptive, not prescriptive at the level of flags and field names (that is PRD territory). It should be read as the high‑level map for where Gomion is going.
 
 ---
 
 ## 1. Problem Space & Context
 
-Squire is intended to support a developer with:
+Gomion is intended to support a developer with:
 
 - Many Git repos in directories like `~/Projects/xmlui`, `~/Projects/go-pkgs`, etc.
 - Repos that often contain **multiple Go modules**:
@@ -32,7 +32,7 @@ Current pain points include:
 - Maintaining "code hygiene" (tests, docs, ClearPath discipline) before releases.
 - Managing **non‑dependency dependencies** (drop‑ins) like `doterr` that are intentionally copied instead of imported.
 
-Squire’s long‑term mission is to make that multi‑repo, multi‑module world **safer, more observable, and harder to screw up**, while staying Go‑centric and low‑magic.
+Gomion’s long‑term mission is to make that multi‑repo, multi‑module world **safer, more observable, and harder to screw up**, while staying Go‑centric and low‑magic.
 
 ---
 
@@ -58,13 +58,13 @@ Squire’s long‑term mission is to make that multi‑repo, multi‑module worl
    - Make updating drop‑ins an explicit, conscious action, separate from normal dependency bumps.
 
 5. **Stable, CI‑friendly configuration model**
-   - Encode all behavior CI needs in **repo‑local** files (`.squire/config.json` plus any Squire‑managed subdirs like changelog or dropins).
-   - Restrict machine‑local config (`~/.config/squire/`) to ergonomics, performance, and user‑specific preferences.
+   - Encode all behavior CI needs in **repo‑local** files (`.gomion/config.json` plus any Gomion‑managed subdirs like changelog or dropins).
+   - Restrict machine‑local config (`~/.config/gomion/`) to ergonomics, performance, and user‑specific preferences.
 
 6. **Longevity and maintainability**
    - Avoid dependencies on fast‑moving frameworks.
    - Prefer plain Go, file‑based protocols, and simple, explicit JSON/TOML/YAML formats.
-   - Keep Squire usable for 10+ years across machines and environments.
+   - Keep Gomion usable for 10+ years across machines and environments.
 
 ---
 
@@ -74,7 +74,7 @@ These concepts are the foundation for all future PRDs.
 
 ### 3.1 Repo‑local module metadata
 
-- Each repo has a `.squire/config.json` at its root.
+- Each repo has a `.gomion/config.json` at its root.
 - v0 defines only a `modules{}` map; future PRDs will extend this file,
   but **repo‑local config remains the canonical source of truth** for:
   - Which modules exist in the repo.
@@ -97,7 +97,7 @@ Key conventions that carry forward:
 We anticipate two primary versioning behaviors:
 
 - **Independent** – a module versions on its own (e.g., dt, dtx, dtglob, appinfo).
-- **Lockstep** – a set of modules share a version (e.g., `apppkg` + `squire-cli` + tests).
+- **Lockstep** – a set of modules share a version (e.g., `apppkg` + `gomion-cli` + tests).
 
 Rather than baking this into the v0 schema, future PRDs will:
 
@@ -108,15 +108,15 @@ Rather than baking this into the v0 schema, future PRDs will:
   {
     "groups": [
       {
-        "name": "squire",
+        "name": "gomion",
         "strategy": "lockstep",
-        "modules": ["apppkg", "squire-cli", "test"]
+        "modules": ["apppkg", "gomion-cli", "test"]
       }
     ]
   }
   ```
 
-  - `name` – identifier for the group (e.g., `"squire"`).
+  - `name` – identifier for the group (e.g., `"gomion"`).
   - `strategy` – how this group versions (`"lockstep"` initially; others may be added later).
   - `modules` – module **names** (not paths) participating in the group.
 
@@ -126,21 +126,21 @@ Release groups act as **versioning units** in release planning: one version deci
 
 - A **root_repo** is a repo that:
   - Serves as the root of a dependency tree (e.g., the main CLI or service).
-  - Has a `.squire/config.json` describing its modules and, eventually, its release groups and dependency policies.
+  - Has a `.gomion/config.json` describing its modules and, eventually, its release groups and dependency policies.
 - A **universe** (name TBD, used instead of "workspace" to avoid confusion with `go.work`) is a user‑level construct:
   - A set of root_repos (and their trees) that you are actively working on.
-  - Known and configured in machine‑local config under `~/.config/squire/`.
+  - Known and configured in machine‑local config under `~/.config/gomion/`.
 
 Future PRDs will describe commands like:
 
-- `squire each` – run a command against each module or repo in the current universe.
-- `squire status` – summarize changes, dependency health, and release readiness across the universe.
+- `gomion each` – run a command against each module or repo in the current universe.
+- `gomion status` – summarize changes, dependency health, and release readiness across the universe.
 
 ### 3.4 Drop‑ins (non‑dependency dependencies)
 
 Drop‑ins like `go-doterr` are **not** treated as normal Go module deps. Instead:
 
-- They are described in `.squire/config.json` under a future `dropins` section, e.g.:
+- They are described in `.gomion/config.json` under a future `dropins` section, e.g.:
 
   ```jsonc
   {
@@ -164,18 +164,18 @@ Drop‑ins like `go-doterr` are **not** treated as normal Go module deps. Instea
 
 The CLI surface should treat drop‑ins as a separate family, for example:
 
-- `squire dropin init doterr`
-- `squire dropin status doterr`
-- `squire dropin update doterr`
-- `squire dropin check doterr`
+- `gomion dropin init doterr`
+- `gomion dropin status doterr`
+- `gomion dropin update doterr`
+- `gomion dropin check doterr`
 
 Updates to drop‑ins are always **explicit** and **rare**, and must never be silently triggered as part of normal dependency updates.
 
 ### 3.5 Changelog annotations
 
-Squire will use a structured changelog system, conceptually similar to AWS’s `.changelog` files but tailored to this ecosystem:
+Gomion will use a structured changelog system, conceptually similar to AWS’s `.changelog` files but tailored to this ecosystem:
 
-- Annotation files stored in a Squire‑managed area (e.g., `.squire/changelog/`).
+- Annotation files stored in a Gomion‑managed area (e.g., `.gomion/changelog/`).
 - Each annotation records:
   - Which modules (by `name`) are affected.
   - Change type: `breaking | feature | fix | doc | internal`.
@@ -186,17 +186,17 @@ These annotations will:
 
 - Feed into release planning (see §4.1).
 - Be combined into human‑readable changelogs for modules and repos.
-- Potentially be drafted by Squire from diffs and API changes, with optional AI assistance.
+- Potentially be drafted by Gomion from diffs and API changes, with optional AI assistance.
 
-We have explicitly **postponed** deciding exactly where changelog creation is enforced (on commit, on release planning, etc.) until after real‑world experience with Squire. The enforcement point is a future PRD decision, but the **existence** of structured annotations and their use in release workflows is part of this Vision.
+We have explicitly **postponed** deciding exactly where changelog creation is enforced (on commit, on release planning, etc.) until after real‑world experience with Gomion. The enforcement point is a future PRD decision, but the **existence** of structured annotations and their use in release workflows is part of this Vision.
 
 ### 3.6 Machine‑local state, ignore lists, and caches
 
-Machine‑local config under `~/.config/squire/` will eventually include:
+Machine‑local config under `~/.config/gomion/` will eventually include:
 
 - Paths to roots (`~/Projects/xmlui`, `~/Projects/go-pkgs`, …) the user cares about.
 - Definitions of universes/stacks (user‑named sets of root_repos).
-- An **ignore list** of repos that should never be Squire‑managed (so scans can omit them).
+- An **ignore list** of repos that should never be Gomion‑managed (so scans can omit them).
 - Caches of scan results to speed up operations while respecting the constraint that CI cannot depend on them.
 
 Machine‑local state is always **optional and reconstructible**; CI must rely only on repo‑local config.
@@ -209,14 +209,14 @@ Machine‑local state is always **optional and reconstructible**; CI must rely o
 
 Target commands (names tentative):
 
-- `squire release plan`
+- `gomion release plan`
   - Given a root_repo (and optional universe):
     - Determine which modules and release groups have changes since their last tagged version.
     - Use changelog annotations + API diffs to propose semver bumps per module/group.
     - Flag inconsistencies (e.g., annotations say patch but API changes are breaking).
     - Output a release manifest detailing proposed versions and notes.
 
-- `squire release apply` (or `squire release tag`)
+- `gomion release apply` (or `gomion release tag`)
   - Consume the manifest and:
     - Run configured gates (tests, linters, ClearPath, etc.).
     - Apply Git tags following Go multi‑module conventions.
@@ -230,16 +230,16 @@ Future PRDs will define:
 
 ### 4.2 Dependency policy & go.mod / go.work management
 
-Squire will manage dep behavior beyond what `go mod tidy` does by default:
+Gomion will manage dep behavior beyond what `go mod tidy` does by default:
 
-- A `dependencies` section in `.squire/config.json` to describe per‑dep policies, e.g.:
+- A `dependencies` section in `.gomion/config.json` to describe per‑dep policies, e.g.:
   - Follow `go.mod` as authored (default).
   - Track latest `v0.x.y` for a given module.
   - Use a different version for one module vs others (e.g., `cmd/foo` pinned to `v0.1.0` while other modules use latest).
 - CLI commands like:
-  - `squire deps list` – show dependencies across modules, grouped and filtered.
-  - `squire deps update` – apply policies by editing `go.mod` in a controlled manner.
-  - `squire deps makerelative` / `squire deps clearrelative` – manage local `replace` directives for intra‑repo / intra‑workspace development.
+  - `gomion deps list` – show dependencies across modules, grouped and filtered.
+  - `gomion deps update` – apply policies by editing `go.mod` in a controlled manner.
+  - `gomion deps makerelative` / `gomion deps clearrelative` – manage local `replace` directives for intra‑repo / intra‑workspace development.
 
 All such commands will adhere to:
 
@@ -248,12 +248,12 @@ All such commands will adhere to:
 
 ### 4.3 Code hygiene, ClearPath, and readiness checks
 
-Squire will incorporate code hygiene checks including ClearPath rules:
+Gomion will incorporate code hygiene checks including ClearPath rules:
 
 - Potential commands:
-  - `squire clearpath lint` – Enforce ClearPath rules (no early returns, structured cleanup via `goto end`, etc. where desired).
-  - `squire code scan` – Run configured static checks (e.g., `go vet`, `golangci-lint`, custom analyzers) across Squire‑managed modules.
-  - `squire code ready` – Aggregate health checks to assert a module/repo is ready for release.
+  - `gomion clearpath lint` – Enforce ClearPath rules (no early returns, structured cleanup via `goto end`, etc. where desired).
+  - `gomion code scan` – Run configured static checks (e.g., `go vet`, `golangci-lint`, custom analyzers) across Gomion‑managed modules.
+  - `gomion code ready` – Aggregate health checks to assert a module/repo is ready for release.
 
 Integration points:
 
@@ -264,26 +264,26 @@ Integration points:
 
 Future commands may also address documentation and structural quality:
 
-- `squire docs scan` – Identify missing or stale docs (missing README, missing exported symbol comments, etc.).
-- `squire deps graph` or `squire imports map` – Visualize module and package‑level dependencies.
+- `gomion docs scan` – Identify missing or stale docs (missing README, missing exported symbol comments, etc.).
+- `gomion deps graph` or `gomion imports map` – Visualize module and package‑level dependencies.
 - Helpers to generate or update metadata files consumed by external catalogs/registries.
 
 These features are lower priority than release orchestration and drop‑ins but remain important for long‑term maintainability.
 
-### 4.5 Universes / stacks and `squire each`
+### 4.5 Universes / stacks and `gomion each`
 
-Once universes/stacks are defined, Squire can:
+Once universes/stacks are defined, Gomion can:
 
-- Provide `squire each` to run arbitrary commands over multiple repos/modules, e.g.:
+- Provide `gomion each` to run arbitrary commands over multiple repos/modules, e.g.:
 
   ```bash
-  squire each go test ./...
-  squire each git status
+  gomion each go test ./...
+  gomion each git status
   ```
 
 - Use universes in higher‑level commands:
-  - `squire status` – aggregated view of which repos/modules have changes, failing tests, or pending releases.
-  - `squire release plan` – operate over a whole universe rather than a single repo.
+  - `gomion status` – aggregated view of which repos/modules have changes, failing tests, or pending releases.
+  - `gomion release plan` – operate over a whole universe rather than a single repo.
 
 The exact data model for universes and ignore lists (e.g., patterns vs explicit paths) will be detailed in separate PRDs.
 
@@ -292,7 +292,7 @@ The exact data model for universes and ignore lists (e.g., patterns vs explicit 
 After a CLI‑only baseline is stable, TUIs can:
 
 - Replace the `scan.txt → init.txt` workflow with an interactive adoption UI.
-- Allow interactive editing of `.squire/config.json` (module roles, group membership, drop‑ins).
+- Allow interactive editing of `.gomion/config.json` (module roles, group membership, drop‑ins).
 - Provide dashboards for status, errors, and release plans.
 
 TUI design will emphasize:
@@ -307,12 +307,12 @@ TUI design will emphasize:
 
 These principles govern future design decisions and PRDs:
 
-1. **Repo‑local truth for CI** – CI must be able to operate using only repo‑local files and Squire binaries.
+1. **Repo‑local truth for CI** – CI must be able to operate using only repo‑local files and Gomion binaries.
 2. **One canonical watch per concern** – Each concern (modules, drop‑ins, dependencies, changelog) has a single authorable source of truth.
 3. **Minimal duplication** – Prefer inference or reference over copying data between files.
 4. **Safety and explicitness** – Mutating operations require explicit commands and should be easily auditable.
-5. **Extensible schema** – `.squire/config.json` is designed to grow new sections (`groups`, `dependencies`, `dropins`, etc.) without breaking existing repos.
+5. **Extensible schema** – `.gomion/config.json` is designed to grow new sections (`groups`, `dependencies`, `dropins`, etc.) without breaking existing repos.
 6. **Go‑first, broadly applicable** – Optimize for Go ecosystems but allow patterns that could generalize to other languages in the future.
 
-This Vision, together with the v0 PRD, is now the **canonical design reference** for Squire. All future PRDs should treat it as the starting point, refining and extending specific areas (release orchestration, drop‑ins, deps, ClearPath, universes, TUIs) without re‑introducing the four legacy docs or the standalone doterr PRD.
+This Vision, together with the v0 PRD, is now the **canonical design reference** for Gomion. All future PRDs should treat it as the starting point, refining and extending specific areas (release orchestration, drop‑ins, deps, ClearPath, universes, TUIs) without re‑introducing the four legacy docs or the standalone doterr PRD.
 

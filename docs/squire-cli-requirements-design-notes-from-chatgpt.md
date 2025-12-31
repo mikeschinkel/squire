@@ -1,13 +1,13 @@
-# Squire CLI – Requirements & Design Notes
+# Gomion CLI – Requirements & Design Notes
 
-This document summarizes current requirements, background, and design directions for the **Squire** CLI.
-It is intended as an internal project artifact to use when refining Squire’s specification and architecture.
+This document summarizes current requirements, background, and design directions for the **Gomion** CLI.
+It is intended as an internal project artifact to use when refining Gomion’s specification and architecture.
 
 ---
 
 ## 1. High-Level Vision
 
-Squire is a **Go-centric developer CLI** that:
+Gomion is a **Go-centric developer CLI** that:
 
 - Orchestrates **multi-module, multi-repo Go development**, particularly:
   - `go.work` workspaces
@@ -24,7 +24,7 @@ The project is intended to be **open source** and opinionated, but structured so
 
 ---
 
-## 2. Core Problems Squire Is Addressing
+## 2. Core Problems Gomion Is Addressing
 
 ### 2.1. Real-world `go.work` + `replace` workflows
 
@@ -34,7 +34,7 @@ Empirically:
 - `replace` alone is noisy and difficult to manage.
 - In practice, many workflows require both to cooperate.
 
-Squire’s core job is to orchestrate:
+Gomion’s core job is to orchestrate:
 
 - **`go.work`** – defines which local module directories participate in a workspace.
 - **`replace`** – defines how module paths are resolved for a particular `go.mod` (e.g., local fork paths, non-workspace locations).
@@ -45,7 +45,7 @@ Key goals:
 - Provide **high-level commands** to:
   - “Turn dev overrides on/off” (names TBD) for a workspace or repo.
   - Ensure `go.work` is consistent with the workspace definition.
-  - Add/remove Squire-managed `replace` blocks safely, without touching user-managed ones.
+  - Add/remove Gomion-managed `replace` blocks safely, without touching user-managed ones.
 - Avoid brittle manual editing of `go.mod` and `go.work` for routine tasks.
 
 ### 2.2. ClearPath coding style
@@ -58,7 +58,7 @@ ClearPath is a personal Go style you want to formalize:
 
 Requirements:
 
-- Squire will eventually provide a **ClearPath linter** as part of `squire go lint` (or equivalent).
+- Gomion will eventually provide a **ClearPath linter** as part of `gomion go lint` (or equivalent).
 - The linter will focus on structural rules that support ClearPath:
   - Control flow patterns.
   - Return placement.
@@ -78,23 +78,23 @@ Requirements:
 Conceptually:
 
 - A **“non-dependency dependency”** is a reusable Go file dropped into many repositories.
-- Squire’s job is to **manage and update** those embedded copies across a workspace when requested.
+- Gomion’s job is to **manage and update** those embedded copies across a workspace when requested.
 
 Existing `go-doterr` design work includes:
 
 - A dedicated CLI PRD (with concepts like `dot`, `copy`, and `ignore` modes per package).
 - TUI for per-package configuration and bulk operations.
 
-Squire should **subsume this CLI**:
+Gomion should **subsume this CLI**:
 
-- Represent doterr settings under Squire config (see §4).
+- Represent doterr settings under Gomion config (see §4).
 - Provide commands to:
   - Initialize doterr usage in a repo.
   - Apply doterr template(s) (i.e., generate or update `doterr.go`).
   - Check for drift across packages.
   - Run TUIs for interactive configuration.
 
-`go-doterr` becomes the canonical example of Squire’s non-dependency dependency support pattern.
+`go-doterr` becomes the canonical example of Gomion’s non-dependency dependency support pattern.
 
 ---
 
@@ -114,20 +114,20 @@ Implications:
 - **Experiments & low-level build toggles**:
   - Canonical config should live in the source tree, e.g. in `go.mod` as a directive comment:
     ```go
-    //squire:goexperiments=arenas,regabiwrappers
+    //gomion:goexperiments=arenas,regabiwrappers
     ```
-  - Squire reads this and sets `GOEXPERIMENT` when invoking `go test`, `go build`, fuzzing, etc.
-  - `.squire` should **not** become a second “watch” for the same data.
+  - Gomion reads this and sets `GOEXPERIMENT` when invoking `go test`, `go build`, fuzzing, etc.
+  - `.gomion` should **not** become a second “watch” for the same data.
 
 - **Doterr usage**:
-  - Canonical config is in Squire’s config (e.g. a `doterr` section) describing package modes: `copy`, `dot`, `ignore`.
+  - Canonical config is in Gomion’s config (e.g. a `doterr` section) describing package modes: `copy`, `dot`, `ignore`.
   - Generated `doterr.go` files and `go:generate` lines are derived from that.
 
 - **Workspaces**:
-  - Canonical definitions (names, roots, owned module patterns) live in user-level Squire config (e.g. `~/.config/squire/config.json`).
-  - `go.work` files are the concrete representation used by the Go tool, managed by Squire according to the workspace definition.
+  - Canonical definitions (names, roots, owned module patterns) live in user-level Gomion config (e.g. `~/.config/gomion/config.json`).
+  - `go.work` files are the concrete representation used by the Go tool, managed by Gomion according to the workspace definition.
 
-In short: Squire must avoid duplicating configuration between `.squire`, inline comments, and other files. There should be **one authoritative place per concept**.
+In short: Gomion must avoid duplicating configuration between `.gomion`, inline comments, and other files. There should be **one authoritative place per concept**.
 
 ---
 
@@ -135,7 +135,7 @@ In short: Squire must avoid duplicating configuration between `.squire`, inline 
 
 ### 4.1. Hierarchy
 
-Conceptual hierarchy Squire works with:
+Conceptual hierarchy Gomion works with:
 
 - **Workspace** – logical grouping of repos & modules (e.g., XMLUI universe).
 - **Repo** – a git repository.
@@ -145,7 +145,7 @@ Conceptual hierarchy Squire works with:
 ### 4.2. Configuration locations
 
 - **User level** (global):
-  - Location: `~/.config/squire/config.json` (or similar).
+  - Location: `~/.config/gomion/config.json` (or similar).
   - Canonical info:
     - Workspaces:
       - Name (e.g. `"xmlui"`).
@@ -155,8 +155,8 @@ Conceptual hierarchy Squire works with:
     - Language configuration (see §9).
 
 - **Repo / module level**:
-  - Location: `.squire/squire.json` (directory-based, consistent with `go-cfgstore`).
-  - Contains **Squire-specific metadata**, for example:
+  - Location: `.gomion/gommod/gomion.json` (directory-based, consistent with `go-cfgstore`).
+  - Contains **Gomion-specific metadata**, for example:
     - Module role(s): `library`, `app`, `test-support`.
     - Release behavior:
       - Whether to use GoReleaser.
@@ -170,8 +170,8 @@ Conceptual hierarchy Squire works with:
 “Owned” modules must be configurable per:
 
 - **Workspace** – via path patterns (e.g. `github.com/mikeschinkel/*`).
-- **Repo** – overrides or special cases defined in `.squire/squire.json`.
-- **Module** – per-module entries in `.squire/squire.json` (e.g., test module vs CLI module).
+- **Repo** – overrides or special cases defined in `.gomion/gommod/gomion.json`.
+- **Module** – per-module entries in `.gomion/gommod/gomion.json` (e.g., test module vs CLI module).
 
 Resolution precedence:
 
@@ -182,9 +182,9 @@ Resolution precedence:
 
 Owned status influences:
 
-- Whether Squire treats a module as part of dev overrides (go.work + replace).
+- Whether Gomion treats a module as part of dev overrides (go.work + replace).
 - Whether it participates in workspace-wide test/lint/release flows.
-- Whether Squire expects GitHub workflows & GoReleaser setups for that module.
+- Whether Gomion expects GitHub workflows & GoReleaser setups for that module.
 
 ---
 
@@ -192,23 +192,23 @@ Owned status influences:
 
 ### 5.1. Workspace commands
 
-Squire should provide `squire workspace` subcommands to manage workspaces:
+Gomion should provide `gomion workspace` subcommands to manage workspaces:
 
-- `squire workspace init <name> --root <dir>`:
+- `gomion workspace init <name> --root <dir>`:
   - Define a new workspace in user config.
   - Optionally create an initial `go.work` at root.
 
-- `squire workspace use <name>`:
+- `gomion workspace use <name>`:
   - Set the current workspace in user config.
 
-- `squire workspace list` / `status`:
+- `gomion workspace list` / `status`:
   - Show defined workspaces and which one is current.
 
 ### 5.2. Workspace discovery (TUI)
 
 `workspace discover` is inherently interactive and should offer a TUI:
 
-- Command: `squire workspace discover`.
+- Command: `gomion workspace discover`.
 - Behavior:
   1. Scan configurable roots (e.g. `$HOME/Projects`, `$HOME/src`, etc.) for directories containing both `.git` and `go.mod`.
   2. Cluster repos into tentative workspaces based on directory structure.
@@ -216,7 +216,7 @@ Squire should provide `squire workspace` subcommands to manage workspaces:
      - Create / rename / remove workspaces.
      - Assign repos to workspaces.
      - Mark repos/modules as owned or not.
-  4. Persist resulting workspace config to `~/.config/squire/config.json`.
+  4. Persist resulting workspace config to `~/.config/gomion/config.json`.
 
 A non-interactive mode (`--non-interactive`) should be available for CI or scripted usage.
 
@@ -226,13 +226,13 @@ A non-interactive mode (`--non-interactive`) should be available for CI or scrip
 
 ### 6.1. `go.work` management
 
-Squire’s responsibilities include:
+Gomion’s responsibilities include:
 
 - Ensuring the workspace root `go.work` is consistent with:
   - User-defined workspace, and
   - Owned modules within that workspace.
 
-Typical command: `squire go sync-work` (name TBD):
+Typical command: `gomion go sync-work` (name TBD):
 
 - Ensure all owned modules that should be part of the workspace appear in `use` directives.
 - Optionally remove `use` entries for missing/obsolete modules.
@@ -242,28 +242,28 @@ Typical command: `squire go sync-work` (name TBD):
 
 ### 6.2. Dev overrides (names TBD)
 
-Squire should provide the ability to “toggle dev mode” for a workspace/repo:
+Gomion should provide the ability to “toggle dev mode” for a workspace/repo:
 
 - “Dev ON” (placeholder name):
   - Ensure workspace `go.work` is in place and includes the right `use` entries.
-  - Add Squire-managed `replace` directives as needed (e.g., for owned modules outside workspace root).
-  - Only operate inside **clearly delimited Squire blocks**, e.g.:
+  - Add Gomion-managed `replace` directives as needed (e.g., for owned modules outside workspace root).
+  - Only operate inside **clearly delimited Gomion blocks**, e.g.:
 
     ```go
-    // squire:replaces begin
+    // gomion:replaces begin
     replace github.com/mikeschinkel/foo => /Users/mike/Projects/ws/foo
     replace github.com/mikeschinkel/bar => /Users/mike/Projects/ws/bar
-    // squire:replaces end
+    // gomion:replaces end
     ```
 
 - “Dev OFF” (placeholder name):
-  - Remove or neutralize Squire’s replace block(s).
+  - Remove or neutralize Gomion’s replace block(s).
   - Optionally leave `go.work` intact but encourage CI to use `GOWORK=off` or not commit `go.work`.
 
-Squire should also support an **adoption flow** (verb TBD) for projects that already have unmanaged `replace` lines:
+Gomion should also support an **adoption flow** (verb TBD) for projects that already have unmanaged `replace` lines:
 
-- TUI to select which existing `replace` entries to adopt under Squire management.
-- Move chosen entries into Squire’s `// squire:replaces` region.
+- TUI to select which existing `replace` entries to adopt under Gomion management.
+- Move chosen entries into Gomion’s `// gomion:replaces` region.
 
 ---
 
@@ -279,25 +279,25 @@ Go experiments:
 
 However, for certain features (e.g. `jsonv2`), code may **require** particular experiments to be on to behave correctly or even compile.
 
-### 7.2. Squire’s approach
+### 7.2. Gomion’s approach
 
-Squire should:
+Gomion should:
 
 - Treat inline comment directives in `go.mod` as canonical, e.g.:
 
   ```go
-  //squire:goexperiments=arenas,regabiwrappers
+  //gomion:goexperiments=arenas,regabiwrappers
   ````markdown
-  # Squire CLI – Requirements & Design Notes
+  # Gomion CLI – Requirements & Design Notes
 
-  This document summarizes current requirements, background, and design directions for the **Squire** CLI.
-  It is intended as an internal project artifact to use when refining Squire’s specification and architecture.
+  This document summarizes current requirements, background, and design directions for the **Gomion** CLI.
+  It is intended as an internal project artifact to use when refining Gomion’s specification and architecture.
 
   ---
 
   ## 1. High-Level Vision
 
-  Squire is a **Go-centric developer CLI** that:
+  Gomion is a **Go-centric developer CLI** that:
 
   - Orchestrates **multi-module, multi-repo Go development**, particularly:
     - `go.work` workspaces
@@ -314,7 +314,7 @@ Squire should:
 
   ---
 
-  ## 2. Core Problems Squire Is Addressing
+  ## 2. Core Problems Gomion Is Addressing
 
   ### 2.1. Real-world `go.work` + `replace` workflows
 
@@ -324,7 +324,7 @@ Squire should:
   - `replace` alone is noisy and difficult to manage.
   - In practice, many workflows require both to cooperate.
 
-  Squire’s core job is to orchestrate:
+  Gomion’s core job is to orchestrate:
 
   - **`go.work`** – defines which local module directories participate in a workspace.
   - **`replace`** – defines how module paths are resolved for a particular `go.mod` (e.g., local fork paths, non-workspace locations).
@@ -335,7 +335,7 @@ Squire should:
   - Provide **high-level commands** to:
     - “Turn dev overrides on/off” (names TBD) for a workspace or repo.
     - Ensure `go.work` is consistent with the workspace definition.
-    - Add/remove Squire-managed `replace` blocks safely, without touching user-managed ones.
+    - Add/remove Gomion-managed `replace` blocks safely, without touching user-managed ones.
   - Avoid brittle manual editing of `go.mod` and `go.work` for routine tasks.
 
   ### 2.2. ClearPath coding style
@@ -348,7 +348,7 @@ Squire should:
 
   Requirements:
 
-  - Squire will eventually provide a **ClearPath linter** as part of `squire go lint` (or equivalent).
+  - Gomion will eventually provide a **ClearPath linter** as part of `gomion go lint` (or equivalent).
   - The linter will focus on structural rules that support ClearPath:
     - Control flow patterns.
     - Return placement.
@@ -368,23 +368,23 @@ Squire should:
   Conceptually:
 
   - A **“non-dependency dependency”** is a reusable Go file dropped into many repositories.
-  - Squire’s job is to **manage and update** those embedded copies across a workspace when requested.
+  - Gomion’s job is to **manage and update** those embedded copies across a workspace when requested.
 
   Existing `go-doterr` design work includes:
 
   - A dedicated CLI PRD (with concepts like `dot`, `copy`, and `ignore` modes per package).
   - TUI for per-package configuration and bulk operations.
 
-  Squire should **subsume this CLI**:
+  Gomion should **subsume this CLI**:
 
-  - Represent doterr settings under Squire config (see §4).
+  - Represent doterr settings under Gomion config (see §4).
   - Provide commands to:
     - Initialize doterr usage in a repo.
     - Apply doterr template(s) (i.e., generate or update `doterr.go`).
     - Check for drift across packages.
     - Run TUIs for interactive configuration.
 
-  `go-doterr` becomes the canonical example of Squire’s non-dependency dependency support pattern.
+  `go-doterr` becomes the canonical example of Gomion’s non-dependency dependency support pattern.
 
   ---
 
@@ -404,20 +404,20 @@ Squire should:
   - **Experiments & low-level build toggles**:
     - Canonical config should live in the source tree, e.g. in `go.mod` as a directive comment:
       ```go
-      //squire:goexperiments=arenas,regabiwrappers
+      //gomion:goexperiments=arenas,regabiwrappers
       ```
-    - Squire reads this and sets `GOEXPERIMENT` when invoking `go test`, `go build`, fuzzing, etc.
-    - `.squire` should **not** become a second “watch” for the same data.
+    - Gomion reads this and sets `GOEXPERIMENT` when invoking `go test`, `go build`, fuzzing, etc.
+    - `.gomion` should **not** become a second “watch” for the same data.
 
   - **Doterr usage**:
-    - Canonical config is in Squire’s config (e.g. a `doterr` section) describing package modes: `copy`, `dot`, `ignore`.
+    - Canonical config is in Gomion’s config (e.g. a `doterr` section) describing package modes: `copy`, `dot`, `ignore`.
     - Generated `doterr.go` files and `go:generate` lines are derived from that.
 
   - **Workspaces**:
-    - Canonical definitions (names, roots, owned module patterns) live in user-level Squire config (e.g. `~/.config/squire/config.json`).
-    - `go.work` files are the concrete representation used by the Go tool, managed by Squire according to the workspace definition.
+    - Canonical definitions (names, roots, owned module patterns) live in user-level Gomion config (e.g. `~/.config/gomion/config.json`).
+    - `go.work` files are the concrete representation used by the Go tool, managed by Gomion according to the workspace definition.
 
-  In short: Squire must avoid duplicating configuration between `.squire`, inline comments, and other files. There should be **one authoritative place per concept**.
+  In short: Gomion must avoid duplicating configuration between `.gomion`, inline comments, and other files. There should be **one authoritative place per concept**.
 
   ---
 
@@ -425,7 +425,7 @@ Squire should:
 
   ### 4.1. Hierarchy
 
-  Conceptual hierarchy Squire works with:
+  Conceptual hierarchy Gomion works with:
 
   - **Workspace** – logical grouping of repos & modules (e.g., XMLUI universe).
   - **Repo** – a git repository.
@@ -435,7 +435,7 @@ Squire should:
   ### 4.2. Configuration locations
 
   - **User level** (global):
-    - Location: `~/.config/squire/config.json` (or similar).
+    - Location: `~/.config/gomion/config.json` (or similar).
     - Canonical info:
       - Workspaces:
         - Name (e.g. `"xmlui"`).
@@ -445,8 +445,8 @@ Squire should:
       - Language configuration (see §9).
 
   - **Repo / module level**:
-    - Location: `.squire/squire.json` (directory-based, consistent with `go-cfgstore`).
-    - Contains **Squire-specific metadata**, for example:
+    - Location: `.gomion/gommod/gomion.json` (directory-based, consistent with `go-cfgstore`).
+    - Contains **Gomion-specific metadata**, for example:
       - Module role(s): `library`, `app`, `test-support`.
       - Release behavior:
         - Whether to use GoReleaser.
@@ -460,8 +460,8 @@ Squire should:
   “Owned” modules must be configurable per:
 
   - **Workspace** – via path patterns (e.g. `github.com/mikeschinkel/*`).
-  - **Repo** – overrides or special cases defined in `.squire/squire.json`.
-  - **Module** – per-module entries in `.squire/squire.json` (e.g., test module vs CLI module).
+  - **Repo** – overrides or special cases defined in `.gomion/gommod/gomion.json`.
+  - **Module** – per-module entries in `.gomion/gommod/gomion.json` (e.g., test module vs CLI module).
 
   Resolution precedence:
 
@@ -472,9 +472,9 @@ Squire should:
 
   Owned status influences:
 
-  - Whether Squire treats a module as part of dev overrides (go.work + replace).
+  - Whether Gomion treats a module as part of dev overrides (go.work + replace).
   - Whether it participates in workspace-wide test/lint/release flows.
-  - Whether Squire expects GitHub workflows & GoReleaser setups for that module.
+  - Whether Gomion expects GitHub workflows & GoReleaser setups for that module.
 
   ---
 
@@ -482,23 +482,23 @@ Squire should:
 
   ### 5.1. Workspace commands
 
-  Squire should provide `squire workspace` subcommands to manage workspaces:
+  Gomion should provide `gomion workspace` subcommands to manage workspaces:
 
-  - `squire workspace init <name> --root <dir>`:
+  - `gomion workspace init <name> --root <dir>`:
     - Define a new workspace in user config.
     - Optionally create an initial `go.work` at root.
 
-  - `squire workspace use <name>`:
+  - `gomion workspace use <name>`:
     - Set the current workspace in user config.
 
-  - `squire workspace list` / `status`:
+  - `gomion workspace list` / `status`:
     - Show defined workspaces and which one is current.
 
   ### 5.2. Workspace discovery (TUI)
 
   `workspace discover` is inherently interactive and should offer a TUI:
 
-  - Command: `squire workspace discover`.
+  - Command: `gomion workspace discover`.
   - Behavior:
     1. Scan configurable roots (e.g. `$HOME/Projects`, `$HOME/src`, etc.) for directories containing both `.git` and `go.mod`.
     2. Cluster repos into tentative workspaces based on directory structure.
@@ -506,7 +506,7 @@ Squire should:
        - Create / rename / remove workspaces.
        - Assign repos to workspaces.
        - Mark repos/modules as owned or not.
-    4. Persist resulting workspace config to `~/.config/squire/config.json`.
+    4. Persist resulting workspace config to `~/.config/gomion/config.json`.
 
   A non-interactive mode (`--non-interactive`) should be available for CI or scripted usage.
 
@@ -516,13 +516,13 @@ Squire should:
 
   ### 6.1. `go.work` management
 
-  Squire’s responsibilities include:
+  Gomion’s responsibilities include:
 
   - Ensuring the workspace root `go.work` is consistent with:
     - User-defined workspace, and
     - Owned modules within that workspace.
 
-  Typical command: `squire go sync-work` (name TBD):
+  Typical command: `gomion go sync-work` (name TBD):
 
   - Ensure all owned modules that should be part of the workspace appear in `use` directives.
   - Optionally remove `use` entries for missing/obsolete modules.
@@ -532,28 +532,28 @@ Squire should:
 
   ### 6.2. Dev overrides (names TBD)
 
-  Squire should provide the ability to “toggle dev mode” for a workspace/repo:
+  Gomion should provide the ability to “toggle dev mode” for a workspace/repo:
 
   - “Dev ON” (placeholder name):
     - Ensure workspace `go.work` is in place and includes the right `use` entries.
-    - Add Squire-managed `replace` directives as needed (e.g., for owned modules outside workspace root).
-    - Only operate inside **clearly delimited Squire blocks**, e.g.:
+    - Add Gomion-managed `replace` directives as needed (e.g., for owned modules outside workspace root).
+    - Only operate inside **clearly delimited Gomion blocks**, e.g.:
 
       ```go
-      // squire:replaces begin
+      // gomion:replaces begin
       replace github.com/mikeschinkel/foo => /Users/mike/Projects/ws/foo
       replace github.com/mikeschinkel/bar => /Users/mike/Projects/ws/bar
-      // squire:replaces end
+      // gomion:replaces end
       ```
 
   - “Dev OFF” (placeholder name):
-    - Remove or neutralize Squire’s replace block(s).
+    - Remove or neutralize Gomion’s replace block(s).
     - Optionally leave `go.work` intact but encourage CI to use `GOWORK=off` or not commit `go.work`.
 
-  Squire should also support an **adoption flow** (verb TBD) for projects that already have unmanaged `replace` lines:
+  Gomion should also support an **adoption flow** (verb TBD) for projects that already have unmanaged `replace` lines:
 
-  - TUI to select which existing `replace` entries to adopt under Squire management.
-  - Move chosen entries into Squire’s `// squire:replaces` region.
+  - TUI to select which existing `replace` entries to adopt under Gomion management.
+  - Move chosen entries into Gomion’s `// gomion:replaces` region.
 
   ---
 
@@ -569,18 +569,18 @@ Squire should:
 
   However, for certain features (e.g. `jsonv2`), code may **require** particular experiments to be on to behave correctly or even compile.
 
-  ### 7.2. Squire’s approach
+  ### 7.2. Gomion’s approach
 
-  Squire should:
+  Gomion should:
 
   - Treat inline comment directives in `go.mod` as canonical, e.g.:
 
     ```go
-    //squire:goexperiments=arenas,regabiwrappers
+    //gomion:goexperiments=arenas,regabiwrappers
     ```
 
   * Parse these from `go.mod` (or other agreed-upon canonical place).
-  * When running Go commands (`squire go test`, `squire go build`, `squire go fuzz`, etc.), Squire should:
+  * When running Go commands (`gomion go test`, `gomion go build`, `gomion go fuzz`, etc.), Gomion should:
 
     * Combine experiments from:
 
@@ -591,13 +591,13 @@ Squire should:
   Possible distinction:
 
   * Some experiments may be **“must-have”** (e.g. required for `jsonv2`), others “nice-to-have”.
-  * Squire could allow marking certain experiments as required vs optional, but that is a future refinement; for now the key is **canonical config via inline directives**, not `.squire`.
+  * Gomion could allow marking certain experiments as required vs optional, but that is a future refinement; for now the key is **canonical config via inline directives**, not `.gomion`.
 
   ---
 
   ## 8. Testing, Linting, Fuzzing & ClearPath
 
-  ### 8.1. `squire go test`
+  ### 8.1. `gomion go test`
 
   High-level behavior:
 
@@ -607,7 +607,7 @@ Squire should:
     * Run `go test ./...` with appropriate environment:
 
       * `GOEXPERIMENT` from directives.
-      * Any other Squire-managed flags.
+      * Any other Gomion-managed flags.
 
   Options and future extensions:
 
@@ -615,11 +615,11 @@ Squire should:
   * Integrating coverage reporting.
   * Aggregating results across modules.
 
-  ### 8.2. `squire go lint`
+  ### 8.2. `gomion go lint`
 
   Responsibilities:
 
-  * Wrap existing linters (e.g., `golangci-lint`) with Squire’s conventions.
+  * Wrap existing linters (e.g., `golangci-lint`) with Gomion’s conventions.
   * Eventually include the **ClearPath linter** as a component:
 
     * Enforce single-return + `goto end` pattern where applicable.
@@ -627,7 +627,7 @@ Squire should:
 
   Policy tools:
 
-  * Squire should be aware of tools like `gomodguard` (for dependency allow/block lists), and long term:
+  * Gomion should be aware of tools like `gomodguard` (for dependency allow/block lists), and long term:
 
     * Integrate as needed for organizations.
     * But for now this is informational / future expansion.
@@ -635,14 +635,14 @@ Squire should:
   License-based dependency governance:
 
   * There’s prior work on tools that govern dependencies by license (e.g. allow Apache-2.0, disallow GPL).
-  * Squire may eventually include a dependency policy layer that:
+  * Gomion may eventually include a dependency policy layer that:
 
     * Reads dependency metadata (including license).
     * Enforces allow/deny lists per workspace.
 
-  ### 8.3. `squire go fuzz` – infinite fuzz testing
+  ### 8.3. `gomion go fuzz` – infinite fuzz testing
 
-  Squire should absorb the functionality of the existing `infinite-fuzz-go` shell script:
+  Gomion should absorb the functionality of the existing `infinite-fuzz-go` shell script:
 
   * Discover fuzz targets from `*_test.go` (functions `FuzzXxx`).
   * Run `go test -run=^$ -fuzz=^FuzzName$` in a loop per target.
@@ -674,14 +674,14 @@ Squire should:
     }
     ```
 
-  * `squire test`, `squire build`, etc. default to `currentLanguage`, but support:
+  * `gomion test`, `gomion build`, etc. default to `currentLanguage`, but support:
 
     * `--lang=<name>`, e.g. `--lang=zig`.
     * Possibly convenience flags (`--zig`).
 
   Implementation:
 
-  * Internally, Squire can eventually have a **language backend registry** with a shared interface:
+  * Internally, Gomion can eventually have a **language backend registry** with a shared interface:
 
     * `Test`, `Build`, `Lint`, etc.
   * Initially, only the **Go backend** needs to exist; other backends are future work.
@@ -694,24 +694,24 @@ Squire should:
 
   General approach:
 
-  * Tagging and releasing is done by **GitHub Actions**, not directly by Squire.
-  * Squire provides scaffolding and validation.
+  * Tagging and releasing is done by **GitHub Actions**, not directly by Gomion.
+  * Gomion provides scaffolding and validation.
 
   Requirements:
 
   * A release workflow (`release.yml`) that:
 
-    * Runs tests, lint, vet (potentially via `squire go test` / `squire go lint`).
+    * Runs tests, lint, vet (potentially via `gomion go test` / `gomion go lint`).
     * Only proceeds to tagging / GoReleaser on success.
   * GoReleaser for binaries:
 
-    * CLI modules (`role: app`) should have GoReleaser config generated/managed by Squire.
+    * CLI modules (`role: app`) should have GoReleaser config generated/managed by Gomion.
 
   ### 10.2. TUI for GoReleaser scaffolding
 
   GoReleaser setup is interactive by nature and should have a TUI:
 
-  * Command: e.g. `squire go release init`.
+  * Command: e.g. `gomion go release init`.
   * TUI tasks:
 
     * Confirm which module(s) are CLI apps.
@@ -723,13 +723,13 @@ Squire should:
     * `.goreleaser.yaml` (or variant).
     * `.github/workflows/release.yml`.
 
-  Additionally, Squire can later support:
+  Additionally, Gomion can later support:
 
-  * Local runs: `squire go release --local` for dry runs before pushing tags.
+  * Local runs: `gomion go release --local` for dry runs before pushing tags.
 
   ### 10.3. GitHub integration (without `gh` CLI)
 
-  Squire should talk directly to GitHub via API (e.g. `google/go-github`), not rely on the `gh` CLI:
+  Gomion should talk directly to GitHub via API (e.g. `google/go-github`), not rely on the `gh` CLI:
 
   * For reading / verifying repo metadata.
   * Potentially for validating tags/releases.
@@ -737,7 +737,7 @@ Squire should:
 
   ---
 
-  ## 11. TUIs in Squire
+  ## 11. TUIs in Gomion
 
   Certain tasks are inherently interactive and should offer TUIs:
 
@@ -760,15 +760,15 @@ Squire should:
 
   ## 12. Templates & Scaffolding
 
-  For Go development, Squire should:
+  For Go development, Gomion should:
 
   * Help scaffold **CLI projects** using `go-cliutil` instead of Cobra/urfave-cli:
 
-    * Command like `squire go new-cli <name>`:
+    * Command like `gomion go new-cli <name>`:
 
       * Set up `cmd/<name>/main.go` with your `RunCLI()` pattern.
       * Configure `go.mod` as needed.
-      * Optionally create `.squire/squire.json` with:
+      * Optionally create `.gomion/gommod/gomion.json` with:
 
         * Module role `app`.
         * GoReleaser usage settings.
@@ -776,34 +776,34 @@ Squire should:
   * Support project templates:
 
     * The templates themselves can include imports of desired packages.
-    * Squire doesn’t need a separate “initial packages list” if templates serve that role.
+    * Gomion doesn’t need a separate “initial packages list” if templates serve that role.
     * Avoid duplicating configuration: templates are canonical for initial structure.
 
   ---
 
   ## 13. Integration with Existing Tools & Libraries
 
-  Squire is meant to **compose** with, not replace:
+  Gomion is meant to **compose** with, not replace:
 
   * `go` toolchain and standard commands.
   * **GoReleaser** for binary releases.
   * **goyek** as an optional task automation framework:
 
-    * Squire can provide Go APIs that goyek flows call.
-    * Projects can embed Squire logic directly in goyek tasks.
+    * Gomion can provide Go APIs that goyek flows call.
+    * Projects can embed Gomion logic directly in goyek tasks.
   * **go-doterr** as a single-file embeddable error handling pattern.
   * Existing one-off utilities such as:
 
     * `ssot` (Single Source of Truth manager).
     * `readme-merge` (merged READMEs from multiple sources).
-    * These tools can be folded into Squire subcommands over time.
+    * These tools can be folded into Gomion subcommands over time.
 
   Implementation preference:
 
-  * Squire should be both:
+  * Gomion should be both:
 
-    * A **CLI app** (`cmd/squire`).
-    * A **library** (packages under `github.com/mikeschinkel/squire/pkg/...`) reusable by goyek flows or other tools.
+    * A **CLI app** (`cmd/gomion`).
+    * A **library** (packages under `github.com/mikeschinkel/gomion/pkg/...`) reusable by goyek flows or other tools.
   * No need for a long-running daemon or gRPC initially; a single process per invocation is sufficient.
 
   ---
@@ -821,15 +821,15 @@ Squire should:
 
      * The ClearPath linter’s detailed rule set still needs to be documented and implemented.
 
-  3. **Exact schema for `.squire/squire.json`**:
+  3. **Exact schema for `.gomion/gommod/gomion.json`**:
 
      * You intend to design JSON schemas by hand; auto-generated schemas are usually not aligned with your preferences.
-     * Squire’s design assumes such a file exists but leaves the schema details to be finalized separately.
+     * Gomion’s design assumes such a file exists but leaves the schema details to be finalized separately.
 
   4. **License-based dependency governance**:
 
      * There is prior work for license-whitelist / blacklist policies (e.g. allow Apache-2.0, disallow GPL).
-     * Squire may integrate this as a future module.
+     * Gomion may integrate this as a future module.
 
   5. **Multi-language backends**:
 
@@ -839,11 +839,11 @@ Squire should:
   6. **Depth of integration with tools like gomodguard**:
 
      * Currently noted as useful for organizations.
-     * Squire may later generate or manage gomodguard configuration for teams that want strict dependency policies.
+     * Gomion may later generate or manage gomodguard configuration for teams that want strict dependency policies.
 
   ---
 
-  This document should serve as a reference point when refining Squire’s requirements in other discussions or documents. It captures the current intent and direction: Squire as a Go-centric orchestration CLI that manages workspaces, ClearPath style, non-dependency dependencies like `go-doterr`, experiments, CI/release, and more, while staying faithful to the “one watch” configuration principle.
+  This document should serve as a reference point when refining Gomion’s requirements in other discussions or documents. It captures the current intent and direction: Gomion as a Go-centric orchestration CLI that manages workspaces, ClearPath style, non-dependency dependencies like `go-doterr`, experiments, CI/release, and more, while staying faithful to the “one watch” configuration principle.
 
   ```
   ::contentReference[oaicite:0]{index=0}

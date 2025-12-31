@@ -1,11 +1,11 @@
-# Squire CLI – Requires Tree PRD
+# Gomion CLI – Requires Tree PRD
 
 **Feature:** Requires Tree (dependency tree visualization + markdown embedding)
 
 **Status:** Draft  
-**Owner:** Mike / Squire CLI  
+**Owner:** Mike / Gomion CLI  
 **Related phases:**
-- Phase 2 – Module Discovery & Dependency Ordering (uses `squirepkg.Module`, `ModuleSet`, `DiscoverModules`, `OrderModules`)
+- Phase 2 – Module Discovery & Dependency Ordering (uses `gompkg.Module`, `ModuleSet`, `DiscoverModules`, `OrderModules`)
 
 **Date:** 2025-12-08
 
@@ -19,9 +19,9 @@ At a high level, this feature provides:
 
 1. A **text tree** similar in spirit to the `tree` bash command, but for **Go module dependencies** instead of directories.
 2. The tree is rooted at the **current repo’s modules** and branches out through the modules they depend on.
-3. A `--all` flag to expand the tree to include **all dependent modules**, not just those that Squire manages.
+3. A `--all` flag to expand the tree to include **all dependent modules**, not just those that Gomion manages.
 4. An `--embed=<markdown_file>` mode that inserts the rendered tree into a markdown file near a special marker:
-   - `<!-- squire:embed-requires-tree -->`
+   - `<!-- gomion:embed-requires-tree -->`
    - Placement controlled by `--before` or `--after` (mutually exclusive, required when `--embed` is used).
 
 The tree is primarily a **read-only visualization** and documentation aid; it does not perform tagging or release actions.
@@ -35,16 +35,16 @@ The tree is primarily a **read-only visualization** and documentation aid; it do
    - Use ASCII-art style (or similar), suitable for code-block embedding in markdown.
 
 2. **Reuse/extend existing discovery logic**
-   - Leverage the Phase 2 module model (`Module`, `ModuleSet`, `DiscoverModules`) for Squire-managed modules.
-   - Add the ability to optionally include non-Squire modules when `--all` is specified.
+   - Leverage the Phase 2 module model (`Module`, `ModuleSet`, `DiscoverModules`) for Gomion-managed modules.
+   - Add the ability to optionally include non-Gomion modules when `--all` is specified.
 
 3. **Markdown embedding workflow**
    - Allow users to embed the dependency tree into documentation files.
-   - Support a stable marker (`<!-- squire:embed-requires-tree -->`) and explicit placement (`--before` or `--after`).
+   - Support a stable marker (`<!-- gomion:embed-requires-tree -->`) and explicit placement (`--before` or `--after`).
    - Embed as a fenced code block: ` ```text` + tree + ` ``` `.
 
 4. **On-the-fly operation**
-   - Compute the tree from the current state of `go.mod` files and Squire metadata at the time the command is run.
+   - Compute the tree from the current state of `go.mod` files and Gomion metadata at the time the command is run.
    - No pre-generated tree artifacts required.
 
 ---
@@ -58,14 +58,14 @@ The tree is primarily a **read-only visualization** and documentation aid; it do
    - The tree is informational only; it does not propose or apply release plans.
 
 3. **Config schema changes**
-   - No new required fields in `.squire/config.json` are needed for this feature.
+   - No new required fields in `.gomion/config.json` are needed for this feature.
 
 4. **Idempotent embed management** (for now)
    - Phase 1 of this feature may not attempt to detect and replace an existing embedded tree; it may simply insert a new code block before/after the marker on each run.
    - Smarter replacement logic can be added later if desired.
 
 5. **Universe multi-root UX**
-   - The initial design focuses on the current repo and any attached repos Squire already handles via `DiscoverModules`.
+   - The initial design focuses on the current repo and any attached repos Gomion already handles via `DiscoverModules`.
 
 ---
 
@@ -76,7 +76,7 @@ The tree is primarily a **read-only visualization** and documentation aid; it do
 **Working name:**
 
 ```bash
-squire requires tree [<dir>] [flags]
+gomion requires tree [<dir>] [flags]
 ```
 
 - `requires` subcommand namespace reflects that we are working with **module requirements** (from `go.mod`).
@@ -88,18 +88,18 @@ squire requires tree [<dir>] [flags]
 
 - `dir` (optional positional)
   - Defaults to `.`
-  - Must be any directory inside a Squire-managed repo; used as the starting point for discovery.
+  - Must be any directory inside a Gomion-managed repo; used as the starting point for discovery.
 
 - `--all`
   - When **absent** (default):
-    - The tree only shows modules Squire manages (`ModuleSet`), i.e., modules discovered by `DiscoverModules`.
+    - The tree only shows modules Gomion manages (`ModuleSet`), i.e., modules discovered by `DiscoverModules`.
   - When **present**:
-    - The tree also includes external modules (non-Squire modules) that are required by any module in the tree.
+    - The tree also includes external modules (non-Gomion modules) that are required by any module in the tree.
     - See §6 for how external dependencies are discovered.
 
 - `--show-dirs`
   - Affects how each node label is rendered.
-  - For **local (Squire-managed) modules**:
+  - For **local (Gomion-managed) modules**:
     - Show the module’s **relative directory** from the repo root instead of the Go module path, e.g. `./`, `./cmd`, `./test`.
   - For **non-local modules** (external modules when `--all` is used):
     - Show the **module path** (since a local directory is not applicable).
@@ -114,13 +114,13 @@ squire requires tree [<dir>] [flags]
   - `--show-all` implies the same information that `--show-dirs` provides, but always includes the module path as the primary identifier.
 
 - `--embed=<markdown_file>`
-  - If provided, Squire will embed the generated tree into the given markdown file instead of (or in addition to) printing to stdout.
+  - If provided, Gomion will embed the generated tree into the given markdown file instead of (or in addition to) printing to stdout.
   - Must be a path to an existing markdown file.
   - Requires exactly one of `--before` or `--after`.
 
 - `--before`
   - Only valid when `--embed` is provided.
-  - Indicates that the tree code block should be inserted **before** the marker `<!-- squire:embed-requires-tree -->` in the target file.
+  - Indicates that the tree code block should be inserted **before** the marker `<!-- gomion:embed-requires-tree -->` in the target file.
 
 - `--after`
   - Only valid when `--embed` is provided.
@@ -171,8 +171,8 @@ Rules:
 ### 5.2 Internal-only vs `--all`
 
 - **Internal-only (default)**:
-  - The tree is built using only Squire-managed modules, i.e. modules returned in `ModuleSet`.
-  - For any dependency not managed by Squire, the dependency may be:
+  - The tree is built using only Gomion-managed modules, i.e. modules returned in `ModuleSet`.
+  - For any dependency not managed by Gomion, the dependency may be:
     - omitted, or
     - optionally summarized as a stub (TBD; see §6.3).
 
@@ -195,24 +195,24 @@ The choice for Phase 1 of this feature can be simplest-first: re-show the module
 
 ## 6. Dependency Discovery
 
-### 6.1 Internal dependencies (Squire-managed)
+### 6.1 Internal dependencies (Gomion-managed)
 
 For internal modules, the tree uses the Phase 2 `ModuleSet`:
 
-- `DiscoverModules(dir)` builds a `ModuleSet` for the current repo (and any attached repos as defined by Squire’s universe rules).
-- For each `Module`, the `Dependencies` field lists module paths of other Squire-managed modules that this module requires.
+- `DiscoverModules(dir)` builds a `ModuleSet` for the current repo (and any attached repos as defined by Gomion’s universe rules).
+- For each `Module`, the `Dependencies` field lists module paths of other Gomion-managed modules that this module requires.
 - The internal-only tree walks these `Dependencies` starting from the current repo’s module(s).
 
 ### 6.2 External dependencies (`--all`)
 
-When `--all` is specified, the tree must extend beyond Squire-managed modules:
+When `--all` is specified, the tree must extend beyond Gomion-managed modules:
 
 1. For each module (internal or external) in the current frontier:
    - Inspect its `go.mod` (for internal modules) or use `go list` / other means (for external modules) to obtain the list of `require` entries.
 
 2. For each `require`d module path `P`:
-   - If `P` is a Squire-managed module (`ModuleSet.byPath[P]` exists), follow it as usual.
-   - If `P` is not a Squire-managed module:
+   - If `P` is a Gomion-managed module (`ModuleSet.byPath[P]` exists), follow it as usual.
+   - If `P` is not a Gomion-managed module:
      - Include `P` as an external node in the tree.
      - Optionally, recursively expand `P`’s own requirements, if reasonably obtainable via tooling (e.g. `go list -m -json`), subject to:
        - reasonable depth limits,
@@ -238,10 +238,10 @@ The PRD does not mandate how deep external dependencies must be expanded; the ke
 - The marker comment is:
 
   ```html
-  <!-- squire:embed-requires-tree -->
+  <!-- gomion:embed-requires-tree -->
   ```
 
-- `--embed=<markdown_file>` instructs Squire to:
+- `--embed=<markdown_file>` instructs Gomion to:
   1. Read the specified markdown file.
   2. Search for the marker comment.
   3. Generate the dependency tree as described above.
@@ -287,11 +287,11 @@ Future improvements may include an optional `--replace` mode that:
 
 The command should fail with clear messages when:
 
-1. `dir` is not inside a Squire-managed repo.
-2. `.squire/config.json` is missing or malformed for the relevant repo.
+1. `dir` is not inside a Gomion-managed repo.
+2. `.gomion/config.json` is missing or malformed for the relevant repo.
 3. `go.mod` files required for internal modules cannot be read or parsed.
 4. `--embed` is provided but the target file does not exist or is not readable/writable.
-5. `--embed` is provided but the marker `<!-- squire:embed-requires-tree -->` is not found.
+5. `--embed` is provided but the marker `<!-- gomion:embed-requires-tree -->` is not found.
 6. `--embed` is provided without a valid combination of `--before` / `--after`.
 
 In all failure cases, the command must:
@@ -333,7 +333,7 @@ In all failure cases, the command must:
 
 This feature is considered complete when:
 
-1. A CLI command (working name `squire requires tree`) exists and:
+1. A CLI command (working name `gomion requires tree`) exists and:
    - prints an internal-only dependency tree when called without `--all` and without `--embed`.
    - includes external dependencies in the tree when `--all` is specified.
 
@@ -341,7 +341,7 @@ This feature is considered complete when:
 
 3. `--embed=<markdown_file> --before` and `--embed=<markdown_file> --after` insert the tree into the given file at the correct position relative to the marker without corrupting the file.
 
-4. The implementation leverages Phase 2’s `Module` and `ModuleSet` for internal modules and does not require changes to `.squire/config.json`.
+4. The implementation leverages Phase 2’s `Module` and `ModuleSet` for internal modules and does not require changes to `.gomion/config.json`.
 
 5. Unit tests cover tree rendering, embedding, and flag validation as described above, and pass reliably.
 

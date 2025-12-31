@@ -1,16 +1,16 @@
-# Squire CLI — General Purpose Project Overview
+# Gomion CLI — General Purpose Project Overview
 
 ## 1. Purpose and Vision
 
-**Squire** is a developer-assistant CLI tool designed to help Go developers maintain clean, well-documented, well-organized codebases. It originated from functionality developed for an MCP server, but will now exist as a standalone command-line tool that is easier to debug, maintain, and extend.
+**Gomion** is a developer-assistant CLI tool designed to help Go developers maintain clean, well-documented, well-organized codebases. It originated from functionality developed for an MCP server, but will now exist as a standalone command-line tool that is easier to debug, maintain, and extend.
 
-Squire acts metaphorically as a *squire* assisting the *knight* (the developer). Its job is to handle repetitive, organizational, and hygiene-related tasks that improve developer productivity and code clarity.
+Gomion acts metaphorically as a *gomion* assisting the *knight* (the developer). Its job is to handle repetitive, organizational, and hygiene-related tasks that improve developer productivity and code clarity.
 
-Squire is intentionally simple, local-first, written in Go, and optimized for both human use and AI-assisted workflows (e.g., Claude Code).
+Gomion is intentionally simple, local-first, written in Go, and optimized for both human use and AI-assisted workflows (e.g., Claude Code).
 
 ---
 
-## 2. Motivations for Creating Squire
+## 2. Motivations for Creating Gomion
 
 ### 2.1 Replacement for MCP Server Logic
 
@@ -23,7 +23,7 @@ Debugging and extending an MCP server proved significantly more difficult than m
 
 ### 2.2 Expand Scope Beyond Documentation Checks
 
-Squire is intended to grow into a **multi-purpose helper tool** offering:
+Gomion is intended to grow into a **multi-purpose helper tool** offering:
 
 * Code hygiene and style enforcement (e.g., ClearPath)
 * Dependency and package relationship visualization
@@ -51,7 +51,7 @@ Its purpose is broader than a linter but narrower than a full build or analysis 
 
 ### 3.3 ClearPath Style Enforcement
 
-Squire will optionally enforce **ClearPath**, a Go coding style developed to:
+Gomion will optionally enforce **ClearPath**, a Go coding style developed to:
 
 * Avoid early returns in favor of `goto end` for cleanup consistency.
 * Encourage predictable control flow.
@@ -66,7 +66,7 @@ ClearPath checks may include:
 
 ### 3.4 Future Growth Areas
 
-Squire is envisioned as a modular tool. Possible future commands include:
+Gomion is envisioned as a modular tool. Possible future commands include:
 
 * Code-generation helpers
 * Cleanup functions (remove unused files, flag dead code)
@@ -79,10 +79,10 @@ Squire is envisioned as a modular tool. Possible future commands include:
 
 ### 4.1 Command Hierarchy
 
-Squire organizes features into clear, intuitive subcommands:
+Gomion organizes features into clear, intuitive subcommands:
 
 ```
-squire
+gomion
 ├── scan        # analyze codebase for hygiene issues
 │   ├── docs
 │   └── readmes
@@ -101,7 +101,7 @@ squire
 
 ### 4.3 Integration Targets
 
-Squire is explicitly designed to integrate smoothly with:
+Gomion is explicitly designed to integrate smoothly with:
 
 * Claude Code (AI-assisted development)
 * Makefiles and shell workflows
@@ -112,12 +112,12 @@ Squire is explicitly designed to integrate smoothly with:
 
 ## 5. Naming Justification
 
-The name **Squire** fits naturally because:
+The name **Gomion** fits naturally because:
 
 * It conveys the idea of a helpful assistant who keeps the Knight's (developer's) tools in order.
 * It follows the thematic predecessor project **Scout**.
 * It is memorable, succinct, and metaphorically appropriate.
-* Existing projects named "squire" do not meaningfully overlap with this tool’s domain.
+* Existing projects named "gomion" do not meaningfully overlap with this tool’s domain.
 
 Even though another archived tool uses the same binary name, the risk is acceptable. If necessary, alternative binaries (`sqr`) can be offered later.
 
@@ -125,7 +125,7 @@ Even though another archived tool uses the same binary name, the risk is accepta
 
 ## 6. Non-Goals
 
-To maintain clarity, Squire is *not* intended to be:
+To maintain clarity, Gomion is *not* intended to be:
 
 * A replacement for `go vet` or `golangci-lint`
 * A build or deployment tool
@@ -162,12 +162,12 @@ It is purpose-built to enhance developer experience through code hygiene, struct
 
 ## 8. Guiding Themes
 
-* **Assist, don’t dictate** — Squire helps developers, not forces heavy rules.
+* **Assist, don’t dictate** — Gomion helps developers, not forces heavy rules.
 * **Low friction** — everything should work with minimal configuration.
-* **Human + AI synergy** — Squire acts as a bridge between a codebase and an AI assistant.
+* **Human + AI synergy** — Gomion acts as a bridge between a codebase and an AI assistant.
 * **Go-first design** — leverage Go's tooling ecosystem.
-* **Maintainability** — Squire is built for the author’s long-term personal use, extensible without heavy overhead.
+* **Maintainability** — Gomion is built for the author’s long-term personal use, extensible without heavy overhead.
 
 ---
 
-This document provides a complete overview of Squire’s purpose, philosophy, scope, and high-level design. It is suitable as a project introduction or a context file to accompany further technical requirements and design discussions.
+This document provides a complete overview of Gomion’s purpose, philosophy, scope, and high-level design. It is suitable as a project introduction or a context file to accompany further technical requirements and design discussions.

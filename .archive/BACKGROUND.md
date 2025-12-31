@@ -1,10 +1,10 @@
-# Squire Background & Design Philosophy
+# Gomion Background & Design Philosophy
 
-This document captures the design philosophy, core concepts, and implementation details of Squire's release management workflow. It serves as context for future development sessions.
+This document captures the design philosophy, core concepts, and implementation details of Gomion's release management workflow. It serves as context for future development sessions.
 
 ## The Publishing/Release Workflow
 
-Squire automates a complex multi-repository Go module publishing workflow. The user's manual process (which we're automating):
+Gomion automates a complex multi-repository Go module publishing workflow. The user's manual process (which we're automating):
 
 ### Manual Workflow Steps
 
@@ -49,7 +49,7 @@ Squire automates a complex multi-repository Go module publishing workflow. The u
 
 ### The Automation Goal
 
-Squire's `next` command should:
+Gomion's `next` command should:
 - Find the next in-flux module to work on (the "leaf")
 - Tell the user what module to focus on
 - Provide verdict on whether changes are breaking (using API diff analysis)
@@ -59,7 +59,7 @@ Squire's `next` command should:
 
 ### Active Development
 
-**Definition**: A module is "actively being developed" if it exists in any of the `scan_dirs` configured in `~/.config/squire/config.json`.
+**Definition**: A module is "actively being developed" if it exists in any of the `scan_dirs` configured in `~/.config/gomion/config.json`.
 
 **Key Points**:
 - Determined by **filesystem presence**, not configuration or replace directives
@@ -166,7 +166,7 @@ Then we need to track it and potentially release it before we can release module
 
 **Why They're Transient**:
 - User can manually edit go.mod and add/remove replace directives
-- Squire might fail partway through processing and leave replace directives in place
+- Gomion might fail partway through processing and leave replace directives in place
 - Replace directives get added during development and removed before release
 - They change throughout the workflow - they're working state, not configuration
 
@@ -184,12 +184,12 @@ Then we need to track it and potentially release it before we can release module
 **Principle**: Derive everything from existing sources; don't duplicate.
 
 **What We Derive From**:
-1. `~/.config/squire/config.json` → scan_dirs (which repos to care about)
+1. `~/.config/gomion/config.json` → scan_dirs (which repos to care about)
 2. Filesystem → which go.mod files exist in scan_dirs
 3. go.mod files → module paths, dependencies, replace directives (current state)
 4. Git state → dirty, commits, tags, pushed/unpushed
 
-**Why No .squire/config.json (Yet)**:
+**Why No .gomion/config.json (Yet)**:
 - We can figure out everything we need from the above sources
 - Adding config files creates another source of truth that can get out of sync
 - Keep it simple until we have stable, working functionality
@@ -199,7 +199,7 @@ Then we need to track it and potentially release it before we can release module
 
 ## Command Architecture
 
-### `squire plan` (Original)
+### `gomion plan` (Original)
 
 **Purpose**: Display the dependency graph for inspection.
 
@@ -227,7 +227,7 @@ Then we need to track it and potentially release it before we can release module
 - If we need engine-based behavior, create a new command
 - Users rely on this for inspection/debugging
 
-### `squire next` (Engine-Based)
+### `gomion next` (Engine-Based)
 
 **Purpose**: Find the next in-flux module to work on (for automation).
 
@@ -263,7 +263,7 @@ Then we need to track it and potentially release it before we can release module
 
 **Why This Was Wrong**:
 1. Replace directives are transient (added/removed during workflow)
-2. Squire might fail partway through and leave state inconsistent
+2. Gomion might fail partway through and leave state inconsistent
 3. User might manually edit go.mod
 4. We'd lose track of modules that ARE local but temporarily don't have replaces
 
@@ -310,18 +310,18 @@ Then we need to track it and potentially release it before we can release module
 ### Key Files
 
 **Core Engine**:
-- `squirepkg/retinue/engine.go` - ReleaseEngine (finds next module)
-- `squirepkg/retinue/go_module.go` - GoModule with `IsInFlux()` check
-- `squirepkg/retinue/go_mod_graph.go` - Dependency graph building and traversal
+- `gompkg/retinue/engine.go` - ReleaseEngine (finds next module)
+- `gompkg/retinue/go_module.go` - GoModule with `IsInFlux()` check
+- `gompkg/retinue/go_mod_graph.go` - Dependency graph building and traversal
 
 **Commands**:
-- `squirepkg/squirecmds/plan_cmd.go` - Original graph display
-- `squirepkg/squirecmds/process_cmd.go` - Engine-based next module finder
+- `gompkg/gomioncmds/plan_cmd.go` - Original graph display
+- `gompkg/gomioncmds/process_cmd.go` - Engine-based next module finder
 
 **Supporting Packages**:
-- `squirepkg/gitutils/` - Git state checking (dirty, tags, push status)
-- `squirepkg/modutils/` - go.mod analysis (dependencies, replace directives)
-- `squirepkg/apidiffr/` - Breaking change detection (API diff)
+- `gompkg/gitutils/` - Git state checking (dirty, tags, push status)
+- `gompkg/modutils/` - go.mod analysis (dependencies, replace directives)
+- `gompkg/apidiffr/` - Breaking change detection (API diff)
 
 ### Deterministic Output
 
@@ -382,7 +382,7 @@ Then we need to track it and potentially release it before we can release module
 
 **Leaf Module**: An in-flux module whose dependencies are all clean (not in-flux). Can be released next.
 
-**scan_dirs**: Directories configured in `~/.config/squire/config.json` where we look for local development repos.
+**scan_dirs**: Directories configured in `~/.config/gomion/config.json` where we look for local development repos.
 
 **Replace Directive**: A line in go.mod like `replace github.com/foo/bar => ../local/bar` that overrides a module with a local path.
 
@@ -423,14 +423,14 @@ Then we need to track it and potentially release it before we can release module
 
 Implement branch validation as specified in `adrs/adr-2025-12-21-branch-metadata-storage.md`:
 - Store branch expectations in `.git/config` (local, branch-independent)
-- Mirror expectations in versioned JSON on `_squire-meta` branch (shared, auditable)
+- Mirror expectations in versioned JSON on `_gomion-meta` branch (shared, auditable)
 - Validate at runtime: compare expected branch vs actual checkout
 - Emit actionable errors on mismatch
 - Directory-anchored resolution (worktree-compatible)
 
 **Key components to implement:**
 1. Read/write branch expectations to/from `.git/config`
-2. Read/write versioned JSON on `_squire-meta` branch
+2. Read/write versioned JSON on `_gomion-meta` branch
 3. Runtime validation in ReleaseEngine
 4. Keep .git/config and JSON in sync
 5. Report divergence clearly

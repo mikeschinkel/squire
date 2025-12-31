@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Squire manages dependencies between Go modules across multiple repositories. We needed to establish consistent terminology throughout the codebase, configuration files, CLI commands, and documentation for referring to these relationships.
+Gomion manages dependencies between Go modules across multiple repositories. We needed to establish consistent terminology throughout the codebase, configuration files, CLI commands, and documentation for referring to these relationships.
 
 Three primary options were considered:
 1. **"dependencies"** or **"deps"** - Common in many ecosystems
@@ -37,12 +37,12 @@ This established precedent in the Go ecosystem makes "requires" the most natural
 
 ## Decision
 
-**Use "requires" terminology consistently across all Squire code, configuration, and documentation.**
+**Use "requires" terminology consistently across all Gomion code, configuration, and documentation.**
 
 This applies to:
 - JSON configuration field names: `requires`
 - Go type names: `RepoRequirement`, `Requires`
-- CLI command namespaces: `squire requires tree`
+- CLI command namespaces: `gomion requires tree`
 - Documentation and user-facing messages
 - Internal code comments
 
@@ -87,23 +87,23 @@ type Module struct {
 
 **CLI Commands:**
 ```bash
-squire requires tree
-squire requires list
-squire update  # updates requires field
+gomion requires tree
+gomion requires list
+gomion update  # updates requires field
 ```
 
 **NOT:**
 ```bash
-squire deps tree     # ✗ Wrong
-squire dependencies  # ✗ Wrong
+gomion deps tree     # ✗ Wrong
+gomion dependencies  # ✗ Wrong
 ```
 
 ### Notes
 
 - This decision was made during Phase 2 implementation of multi-repo module tree visualization
-- The term "requires" specifically refers to **repository-level dependencies** that Squire manages
-- This is distinct from Go module dependencies (which may include third-party packages Squire doesn't manage)
-- "Requires" in Squire context means: "repositories containing modules that this repository's modules depend on"
+- The term "requires" specifically refers to **repository-level dependencies** that Gomion manages
+- This is distinct from Go module dependencies (which may include third-party packages Gomion doesn't manage)
+- "Requires" in Gomion context means: "repositories containing modules that this repository's modules depend on"
 
 ## References
 

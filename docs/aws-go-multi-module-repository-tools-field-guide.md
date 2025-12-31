@@ -44,7 +44,7 @@ Key sections:
       ```
     * Used primarily by `calculaterelease` and related release tools to decide which modules to tag and how. ([GitHub][1])
 
-For Squire PRDs, `modman.toml` is the conceptual precursor to `.squire/config.json` plus a dependency-policy file.
+For Gomion PRDs, `modman.toml` is the conceptual precursor to `.gomion/config.json` plus a dependency-policy file.
 
 ---
 
@@ -89,7 +89,7 @@ All under `cmd/`:
     * Specialized tool for AWS’s smithy pipeline.
     * For newly generated modules that are marked “stable”, creates appropriate changelog annotations automatically.
 
-**What to steal for Squire:**
+**What to steal for Gomion:**
 
 * The **annotation model** and file layout (`.changelog/`).
 * The idea of a **separate “generate changelog” step** that merges annotations into human-readable docs.
@@ -136,7 +136,7 @@ All under `cmd/`:
         * Copies smithy-go build artifacts into the SDK repo.
         * Generates `go.mod` for those generated modules based on a `generated.json` descriptor. ([GitHub][1])
 
-**What to steal for Squire:**
+**What to steal for Gomion:**
 
 * Strategies for **bulk updating `require` entries** (via a policy map).
 * The concept of **makerelative/clearrelative** to manage dev-time local `replace` vs release-time clean `go.mod`.
@@ -177,7 +177,7 @@ All under `cmd/`:
 
 4. **`cmd/generatechangelog`** (already covered above) is also part of the release pipeline: turns annotations + manifest into human-readable CHANGELOGs.
 
-**What to steal for Squire:**
+**What to steal for Gomion:**
 
 * The **two-stage release pipeline**:
 
@@ -196,7 +196,7 @@ All under `cmd/`:
     * Enumerates modules in the repo and runs an arbitrary shell command in each module directory.
     * Used as a generic “for each Go module” loop primitive in scripts.
 
-This is essentially their primitive for what you’re thinking of as `squire each`.
+This is essentially their primitive for what you’re thinking of as `gomion each`.
 
 ---
 
@@ -212,7 +212,7 @@ This is essentially their primitive for what you’re thinking of as `squire eac
 
 ## TL;DR for future PRDs
 
-When we write Squire PRDs that “cannibalize” this repo, the key concepts to remember are:
+When we write Gomion PRDs that “cannibalize” this repo, the key concepts to remember are:
 
 * **`modman.toml`** as:
 
@@ -223,7 +223,7 @@ When we write Squire PRDs that “cannibalize” this repo, the key concepts to 
 * **Dependency update tooling** (`updaterequires`, `makerelative`) as a pattern for large multi-module repos.
 * **Drop-in pieces** we might reuse/port: `changelog` package, `gomod` module tree/diff logic, `release`/`manifest` semantics, `git` wrappers, distributed `go_module_metadata` pattern, and `eachmodule` as a core “apply over modules” primitive.
 
-If you paste this summary into a new chat, I’ll have everything I need to write Squire PRDs that draw from the AWS tools without having to re-open their repo.
+If you paste this summary into a new chat, I’ll have everything I need to write Gomion PRDs that draw from the AWS tools without having to re-open their repo.
 
 [1]: https://github.com/awslabs/aws-go-multi-module-repository-tools "GitHub - awslabs/aws-go-multi-module-repository-tools"
 [2]: https://rpm.pbone.net/info_idpl_125120109_distro_fedoraother_com_golang-github-awslabs-aws-multi-module-repository-tools-devel-0-0.7.20221016gitb6ea859.fc41.noarch.rpm.html?utm_source=chatgpt.com "RPM Fedora Other golang-github-awslabs-aws-multi-module- ..."
