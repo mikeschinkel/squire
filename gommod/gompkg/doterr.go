@@ -125,14 +125,16 @@ func NewErr(parts ...any) error {
 	coreParts, cause := extractTrailingCause(parts)
 
 	if validationErr := validateNewParts(coreParts); validationErr != nil {
-		// Return validation error joined as first error
+		// Return validation error as first error in entry.errors
 		var e entry
 		e.id = uniqueId
 		appendEntry(&e, coreParts...)
 		if e.empty() {
 			return validationErr
 		}
-		return errors.Join(validationErr, e)
+		// Prepend validation error to entry.errors
+		e.errors = append([]error{validationErr}, e.errors...)
+		return e
 	}
 
 	var e entry
@@ -142,9 +144,9 @@ func NewErr(parts ...any) error {
 		return cause // if we only had a cause, return it
 	}
 
-	// Join entry with optional cause (cause last)
+	// Append optional cause to entry.errors (cause last)
 	if cause != nil {
-		return errors.Join(e, cause)
+		e.errors = append(e.errors, cause)
 	}
 	return e
 }
@@ -289,13 +291,20 @@ func ErrMeta(err error) []ErrKV {
 	var e, ce entry
 	var cePtr *entry
 
-	// Case (a): err is an entry → return its metadata
+	// Case (a): err is an entry → return its metadata plus metadata from errors in entry.errors
 	//goland:noinspection GoTypeAssertionOnErrors,DuplicatedCode
 	e, ok = err.(entry)
 	if ok {
 		out := make([]ErrKV, len(e.kvs))
 		for i, pair := range e.kvs {
 			out[i] = pair
+		}
+		// Also collect metadata from errors stored in entry.errors
+		for _, childErr := range e.errors {
+			childMeta := ErrMeta(childErr)
+			if childMeta != nil {
+				out = append(out, childMeta...)
+			}
 		}
 		return out
 	}
@@ -552,30 +561,87 @@ func newEntry(errors []error, kvs []kv) *entry {
 }
 
 // Error implements the std lib error interface and returns the strings value
-//
-//goland:noinspection DuplicatedCode
-func (e entry) Error() string {
+func (e entry) Error() (s string) {
 	if len(e.errors) == 0 && len(e.kvs) == 0 {
 		return "doterr{}"
 	}
 
-	var parts []string
+	sb := strings.Builder{}
 
-	// Include sentinel errors first
-	for _, err := range e.errors {
-		parts = append(parts, err.Error())
-	}
-
-	// Then include metadata
-	if len(e.kvs) > 0 {
-		meta := "meta:"
-		for _, pair := range e.kvs {
-			meta += " " + fmt.Sprintf("%s=%v", pair.k, pair.v)
+	// Include sentinel errors first (recursively passing seen map)
+	for i, err := range e.errors {
+		if i != 0 {
+			sb.WriteString("; ")
 		}
-		parts = append(parts, meta)
+		sb.WriteString(err.Error())
 	}
+	if len(e.kvs) == 0 {
+		return sb.String()
+	}
+	var meta strings.Builder
 
-	return strings.Join(parts, "; ")
+	// Then include metadata (skip if already seen)
+	for i, pair := range e.kvs {
+		if e.MatchKV(pair.k, pair.v) {
+			// We've already added to our error string
+			continue
+		}
+		if i != 0 {
+			meta.WriteString(", ")
+		}
+		meta.WriteString(fmt.Sprintf(" %s=%v", pair.k, pair.v))
+	}
+	s = sb.String()
+	if meta.Len() > 0 {
+		s += "; meta:" + meta.String()
+	}
+	return
+}
+
+var _ IsDotErrEntry = (*entry)(nil)
+
+type IsDotErrEntry = interface {
+	IsDotErrEntry()
+	HasKV(key string, value any) bool
+	MatchKV(key string, value any) bool
+}
+
+func (e entry) IsDotErrEntry() {}
+
+// HasKV checks if this entry contains a key-value pair.
+// Zero allocation query method for cross-package metadata inspection.
+func (e entry) HasKV(key string, value any) bool {
+	for _, kv := range e.kvs {
+		if kv.k == key && kv.v == value {
+			return true
+		}
+	}
+	return false
+}
+
+// MatchKV checks if a key-value pair exists in any descendant entry (not in self).
+// Returns true if any child or deeper descendant has this exact key-value pair.
+func (e entry) MatchKV(key string, value any) (matched bool) {
+	for _, err := range e.errors {
+		// Assert to full anonymous interface (works across packages)
+		child, ok := err.(interface {
+			IsDotErrEntry()
+			HasKV(key string, value any) bool
+			MatchKV(key string, value any) bool
+		})
+		if !ok {
+			continue
+		}
+		// Check if child has this pair (zero allocation query)
+		if child.HasKV(key, value) {
+			return true
+		}
+		// Recursively check child's descendants
+		if child.MatchKV(key, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e entry) Unwrap() []error {
@@ -652,6 +718,51 @@ func (c combined) Unwrap() []error {
 // Unexported helper funcs
 //------------------------
 
+// addToEntryErrors appends additional errors to an entry's errors field.
+// If err is an entry, it appends additionalErrs to its errors slice.
+// If err is not an entry, it creates a new entry containing err and additionalErrs.
+// Returns nil if both err and additionalErrs are empty.
+func addToEntryErrors(err error, additionalErrs ...error) error {
+	// Filter out nil errors
+	filtered := make([]error, 0, len(additionalErrs))
+	for _, e := range additionalErrs {
+		if e != nil {
+			filtered = append(filtered, e)
+		}
+	}
+
+	if err == nil {
+		if len(filtered) == 0 {
+			return nil
+		}
+		if len(filtered) == 1 {
+			return filtered[0]
+		}
+		var e entry
+		e.id = uniqueId
+		e.errors = filtered
+		return e
+	}
+
+	if len(filtered) == 0 {
+		return err
+	}
+
+	// Try to add to existing entry
+	if e, ok := err.(entry); ok {
+		e.errors = append(e.errors, filtered...)
+		return e
+	}
+
+	// err is not an entry - create new entry wrapping all
+	var e entry
+	e.id = uniqueId
+	e.errors = make([]error, 0, len(filtered)+1)
+	e.errors = append(e.errors, err)
+	e.errors = append(e.errors, filtered...)
+	return e
+}
+
 // extractTrailingCause checks if the last element in parts is an error that should
 // be treated as a trailing cause. Returns (cause, remaining parts).
 // A trailing error is considered a cause if:
@@ -692,6 +803,7 @@ func extractTrailingCause(parts []any) (_ []any, err error) {
 
 	// If we only have errors (all sentinels), the last one is not a cause
 	if sentinelCount == len(parts) {
+		err = nil // Not a cause - clear err to avoid returning it twice
 		goto end
 	}
 
@@ -719,6 +831,7 @@ func extractTrailingCause(parts []any) (_ []any, err error) {
 
 	if nonSentinelCount%2 != 0 {
 		// Odd count - last error is a value, not a cause
+		err = nil // Not a cause - clear err to avoid returning it twice
 		goto end
 	}
 
@@ -787,12 +900,11 @@ func validateNewParts(parts []any) error {
 			}
 			// After first key, must have even number of remaining args
 			if j+1 >= len(parts) {
-				// Build entry manually to avoid recursion
-				e := newEntry([]error{ErrTrailingKey}, []kv{
-					{k: "key", v: v},
-					{k: "position", v: j},
-				})
-				return e
+				// Panic immediately - this is a programming error
+				panic(fmt.Sprintf("doterr.NewErr(): trailing key %q at position %d without value. "+
+					"Keys must be followed by values, or use an error as the final argument for a cause. "+
+					"Fix: either add a value for %q, remove it, or if you meant to pass a cause error, ensure it's an error type not a string.",
+					v, j, v))
 			}
 			j++ // Skip the value
 		case error:
@@ -804,14 +916,11 @@ func validateNewParts(parts []any) error {
 			})
 			return e
 		default:
-			// Non-string, non-error, non-ErrKV values are not allowed
-			// Build entry manually to avoid recursion
-			e := newEntry([]error{ErrInvalidArgumentType}, []kv{
-				{k: "type", v: fmt.Sprintf("%T", v)},
-				{k: "position", v: j},
-				{k: "message", v: "only error, ErrKV, []ErrKV, func()ErrKV, or string keys allowed"},
-			})
-			return e
+			// Non-string, non-error, non-ErrKV values are not allowed - panic immediately
+			panic(fmt.Sprintf("doterr.NewErr: invalid argument type %T at position %d. "+
+				"Only error, ErrKV, []ErrKV, func()ErrKV, or string keys are allowed. "+
+				"Fix: remove the invalid argument or convert it to a valid type.",
+				v, j))
 		}
 	}
 
@@ -848,7 +957,7 @@ func buildEntry(parts ...any) error {
 }
 
 // handleCause inspects err and cause and, if cause is non-nil,
-// returns errors.Join(err, cause) with the cause LAST.
+// appends cause to entry.errors (or creates new entry wrapping both).
 func handleCause(err, cause error) error {
 	if cause == nil {
 		return err
@@ -856,8 +965,8 @@ func handleCause(err, cause error) error {
 	if err == nil {
 		return cause
 	}
-	// If we have a trailing cause, join it LAST.
-	return errors.Join(err, cause)
+	// Append cause to entry.errors (cause LAST)
+	return addToEntryErrors(err, cause)
 }
 
 // checkCrossPackage wraps an error with ErrCrossPackageError if it's an entry
@@ -866,9 +975,9 @@ func checkCrossPackage(err error) error {
 	//goland:noinspection GoTypeAssertionOnErrors
 	e, isEntry := err.(entry)
 	if isEntry && e.id != uniqueId {
-		// Cross-package error detected - prepend sentinel
+		// Cross-package error detected - create entry with sentinel and cross-package error
 		crossPkgErr := buildEntry(ErrCrossPackageError, "package_id", e.id, "expected_id", uniqueId)
-		return errors.Join(crossPkgErr, err)
+		return addToEntryErrors(crossPkgErr, err)
 	}
 	return err
 }
@@ -885,11 +994,11 @@ func containsSentinels(parts []any) bool {
 }
 
 // buildErr tries to enrich the rightmost doterr entry inside baseErr.
-// If none found, it joins a fresh entry (from middle) with baseErr,
+// If none found, creates a fresh entry with baseErr in its errors slice,
 // preserving baseErr's internals (including any existing cause).
 //
 // Key behavior: If middle contains any sentinels (errors), we create a NEW entry
-// and join it FIRST to preserve context layering. Metadata-only additions can enrich.
+// and store baseErr in entry.errors to preserve context layering. Metadata-only additions can enrich.
 func buildErr(baseErr error, middle []any) error {
 	// Check if middle contains any sentinel errors
 	hasSentinels := containsSentinels(middle)
@@ -899,8 +1008,8 @@ func buildErr(baseErr error, middle []any) error {
 	if hasSentinels {
 		e := buildEntry(middle...)
 		if e != nil {
-			// New context goes FIRST, base error follows
-			return errors.Join(e, baseErr)
+			// New context entry stores base error in its errors slice
+			return addToEntryErrors(e, baseErr)
 		}
 		return baseErr
 	}
@@ -912,10 +1021,10 @@ func buildErr(baseErr error, middle []any) error {
 		return enriched
 	}
 
-	// No doterr entry found to enrich; create a fresh entry and join it
+	// No doterr entry found to enrich; create a fresh entry with baseErr in errors
 	e := buildEntry(middle...)
 	if e != nil {
-		return errors.Join(e, baseErr)
+		return addToEntryErrors(e, baseErr)
 	}
 	return baseErr
 }

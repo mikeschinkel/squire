@@ -38,5 +38,8 @@ var ErrCannotExtractModulePath = errors.New("cannot extract module path")
 var ErrNoRepoRoot = errors.New("no repository root")
 
 var ErrGoModuleNameNotParsed = errors.New("name for Go module not parsed")
-var ErrRepoNotFoundForGoModule = errors.New("repo not found for Go module")
+var ErrNoRepoFoundForGoModule = errors.New("no repo found for Go module")
 var ErrNotImplemented = errors.New("not implemented")
+
+//goland:noinspection GoErrorStringFormat
+var ErrGoModuleNotFound = errors.New("Go module not found")
