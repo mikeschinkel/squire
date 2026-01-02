@@ -3,7 +3,9 @@ package gomtui
 import (
 	"context"
 	"log/slog"
+	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/go-dt/dtx"
@@ -28,33 +30,45 @@ func New(writer cliutil.Writer, logger *slog.Logger) *TUI {
 
 // Run is the entry point for the GRU TUI staging editor
 // It takes the CLI args and launches the bubbletea app
-func (t *TUI) Run(args []string) (err error) {
+// NOTE: This single-module entry point is temporary. Eventually this will be
+// called from a multi-module tree view where user selects which module to work on.
+func (t *TUI) Run(startDir dt.DirPath) (err error) {
 	var moduleDir dt.DirPath
 	var userRepo *gitutils.Repo
-	var cachedRepo *gitutils.CachedWorktree
 	var ctx context.Context
 	var exists bool
+	var state EditorState
+	var program *tea.Program
 
-	// Parse module directory from args (defaults to current directory)
-	if len(args) > 0 {
-		moduleDir = dt.DirPath(args[0])
-	} else {
+	startDir, err = startDir.Expand()
+	if err != nil {
+		err = NewErr(dt.ErrFailedToExpandPath, err)
+		goto end
+	}
+	// Parse starting directory from args (defaults to current directory)
+	if startDir == "" {
 		// Default to current directory
-		moduleDir, err = dtx.GetWorkingDir()
+		startDir, err = dtx.GetWorkingDir()
 		if err != nil {
 			err = NewErr(dt.ErrCannotDetermineWorkingDirectory, err)
 			goto end
 		}
 	}
 
-	// Ensure module directory exists
-	exists, err = moduleDir.Exists()
+	// Ensure starting directory exists
+	exists, err = startDir.Exists()
 	if err != nil {
 		err = NewErr(dt.ErrFileSystem, err)
 		goto end
 	}
 	if !exists {
-		err = NewErr(dt.ErrDirDoesNotExist)
+		err = NewErr(dt.ErrDirDoesNotExist, startDir.ErrKV())
+		goto end
+	}
+
+	// Auto-detect module directory (find go.mod)
+	moduleDir, err = gompkg.AutoDetectModule(startDir)
+	if err != nil {
 		goto end
 	}
 
@@ -65,31 +79,34 @@ func (t *TUI) Run(args []string) (err error) {
 		goto end
 	}
 
-	// Open cached worktree
+	// Initialize EditorState
 	ctx = context.Background()
-	cachedRepo, err = userRepo.OpenCachedWorktree(ctx)
+	state = EditorState{
+		UserRepo:      userRepo,
+		ModuleDir:     moduleDir,
+		ModuleRelPath: calculateModuleRelPath(userRepo.Root, moduleDir),
+		ViewMode:      FileSelectionView, // Start in File Selection View
+		Writer:        t.Writer,
+	}
+
+	// Initialize File Selection View
+	state, err = state.initFileSelectionView(ctx)
 	if err != nil {
 		err = NewErr(ErrGit, err)
 		goto end
 	}
 
-	// Load or generate takes
-	err = t.loadOrGenerateTakes(ctx, userRepo, cachedRepo)
+	// Launch BubbleTea program
+	program = tea.NewProgram(state, tea.WithAltScreen())
+	_, err = program.Run()
 	if err != nil {
+		err = NewErr(ErrGit, err)
 		goto end
 	}
 
-	// TODO: Initialize EditorState
-	// TODO: Launch bubbletea program
-
-	// For now, just print success message
-	t.Writer.Printf("GRU TUI initialized successfully\n")
-	t.Writer.Printf("Module: %s\n", moduleDir)
-	t.Writer.Printf("Cached repo: %s\n", cachedRepo.Dir)
-
 end:
 	if err != nil {
-		err = WithErr(err, "module_dir", moduleDir)
+		err = WithErr(err, startDir.ErrKV())
 	}
 	return err
 }
@@ -199,4 +216,39 @@ func (t *TUI) generateTakesViaAI(
 	}
 
 	return takes, err
+}
+
+// calculateModuleRelPath calculates the relative path from repo root to module directory
+func calculateModuleRelPath(repoRoot dt.DirPath, moduleDir dt.DirPath) dt.RelDirPath {
+	var relPath dt.RelDirPath
+	var err error
+
+	// If module dir equals repo root, use "."
+	if moduleDir == repoRoot {
+		return "."
+	}
+
+	// Calculate relative path from repo root to module
+	relPath, err = moduleDir.Rel(repoRoot)
+	if err != nil {
+		// Fallback: try string-based calculation
+		// This handles cases where dt.Rel might not work as expected
+		repoStr := string(repoRoot)
+		modStr := string(moduleDir)
+
+		// Ensure repo root ends with separator for clean trimming
+		if !strings.HasSuffix(repoStr, "/") {
+			repoStr += "/"
+		}
+
+		// If module starts with repo root, trim it
+		if strings.HasPrefix(modStr, repoStr) {
+			relPath = dt.RelDirPath(strings.TrimPrefix(modStr, repoStr))
+		} else {
+			// Ultimate fallback: use "."
+			relPath = "."
+		}
+	}
+
+	return relPath
 }

@@ -21,174 +21,195 @@
 
 ---
 
-## Overview
+## Critical Constraints (MUST FOLLOW)
 
-Gomion's modal commit workflow with staging plan-based workflow, line-level control, and AI-assisted commit message generation.
-
-**Modal System:** Flat mode registry with F-key switching between ANY mode at ANY time.
-
-## Architecture Summary
-
-### Modal Menu System (go-cliutil) - ✅ COMPLETE
-
-**Display Format:**
-```
-Main Menu: [f3] Explore [f4] Manage [f5] Compose — [f1] Help
-Actions:   [1] Commit — [0] help [9] quit
-Choice:
-```
-
-### Gomion Integration
-
-**Four Modes:**
-- **Main (F2):** [1] Commit code — starting mode
-- **Explore (F3):** [1] Status [2] Breaking [3] Other Changes [4] Tests — read-only exploration
-- **Manage (F4):** [1] Stage [2] Unstage [3] Plan [4] Split — staging plan-based workflow
-- **Compose (F5):** [1] Staged [2] Generate [3] List [4] Merge [5] Edit — commit message workflow
-
-**Data Model:**
-- **Staging Plans** - Categorized changes with line-level hunk info (`.gomion/plans/`)
-- **Commit Candidates** - AI-generated messages with staging hash (`.gomion/candidates/`)
-- **Staging Snapshots** - Safety net for undo (`.gomion/snapshots/`, auto-archive 30 days)
-- **AI Plan Takes** - 3 different perspectives on staging plans (`~/.cache/gomion/analysis/`)
-
-**Key Workflow:**
-1. Explore changes → 2. Manage: AI plans → Split (assign lines) → Stage plan → 3. Compose: Generate message → 4. Main: Commit
+1. **All git operations in gitutils** - Never call git commands directly
+2. **doterr error handling** - Each package has own doterr.go, use NewErr() with sentinels
+3. **dt package for paths** - No .String() casting, use dt methods directly
+4. **ClearPath style** - Single return, goto end, no else
+5. **Scalar types in gomcfg** - NO time.Time, dt.DirPath in config types (JSON only)
+6. **Parse functions** - gomcfg → gompkg conversion with validation
+7. **GOEXPERIMENT=jsonv2** - Required for build
 
 ---
 
-## GRU: Standalone TUI Staging Editor
+## Critical Workflow Decision
 
-### Executive Summary
+**WORKFLOW FLAW IDENTIFIED** in original plan:
 
-Build **gru** - a standalone TUI staging editor in `cmd/gru` that provides visual take selection and hunk assignment. This is the interactive UI component for Gomion's staging workflow.
+1. **Wrong scope**: Getting ALL repo files, need MODULE-scoped files
+2. **No file filtering**: No way to exclude files developer doesn't want to commit
+3. **Missing human-in-the-loop**: Need File Selection View BEFORE generating takes
 
-**Core Innovation:** Dynamic UI that switches between Take exploration (conceptual groupings) and hunk refinement (concrete staging) based on user focus.
-
-### Architecture Overview
-
-#### Standalone App with Cached Repo
-
-- **Location**: `cmd/gru/` - Standalone binary
-- **Integration**: gru runs standalone, reads/writes `.gomion/` directly (may add Gomion integration later)
-- **Cached Repo**: Uses existing `gitutils.CachedWorktree` implementation
-    - Cache: `~/.cache/repos/<repo-key>/`
-    - Isolated workspace, user repo untouched until commit
-- **Per-ChangeSet Index**: Separate Git index file per ChangeSet (via `GIT_INDEX_FILE`)
-    - Location: `<projectRepo>/.git/info/changesets/<id>/index`
-    - Persisted in user repo's `.git/info/` directory (survives cache clearing)
-    - User repo uses `.gomion/` for other persistence
-
-#### Data Model
-
+**OLD (wrong)**:
 ```
-PlanTake (AI strategy)
-  ├─ ChangeSet 1 (conceptual group)
-  │   └─ files → (user refines) → hunks
-  ├─ ChangeSet 2
-  │   └─ files → (user refines) → hunks
-  └─ ...
-
-Final output: StagingPlan per ChangeSet with specific hunks
+Get all files → Generate takes → Select files
 ```
 
-**Key types:**
-- `PlanTake` (was `StagingPlanTake`) - One AI strategy (e.g., "By Feature")
-- `ChangeSet` (was `TakeGroup`) - Logical group within a take
-- `StagingPlan` - Final output with specific file/hunk assignments ready to commit
-    - **Note:** May not be needed - can generate diff patch directly from Git index
-
-#### UI Modes (Dynamic)
-
-**Mode 1: Takes Exploration** (focus on left pane, Takes list visible)
+**NEW (correct)**:
 ```
-╔═══════════════╦══════════════════╦═════════════════╗
-║ TAKES (focus) ║ CHANGESETS       ║ SOURCE/SUMMARY  ║
-║ > Take 1: ... ║ • ChangeSet A    ║ Code preview    ║
-║   Take 2: ... ║ • ChangeSet B    ║ or summary      ║
-║═══════════════║                  ║                 ║
-║ FILES         ║                  ║                 ║
-║   auth.go     ║                  ║                 ║
-╚═══════════════╩══════════════════╩═════════════════╝
+1. Get changed files (module-scoped)
+2. File Selection View - mark what NOT to include
+3. Generate takes ONLY on INCLUDE files
+4. Takes View
+5. Hunk Assignment View
 ```
 
-**Mode 2: Hunk Refinement** (focus on files, Takes list hidden/collapsed)
+**Key insight**: Developer FIRST decides what NOT to include, THEN decides on commits.
+
+### Architecture Decisions
+
+#### Filter Functions for Module Scope
+
+**Problem**: Need to filter changed files to module scope, but gitutils shouldn't know about Go modules.
+
+**Solution**:
+- gitutils accepts a **filter func** or **iterator** (from dt.WalkDir)
+- Module-specific logic lives in **gompkg**
+- Keeps gitutils language-agnostic and reusable
+- Future-proof for other languages
+
+#### DO-NOT-INCLUDE as Special ChangeSet
+
+**Decision**: Treat DO-NOT-INCLUDE as a special ChangeSet instead of separate concept.
+
+**Benefits**:
+- UI doesn't need special cases
+- Uses same data structures
+- Just ignore this ChangeSet when generating takes
+
+**File Dispositions**:
+- `INCLUDE` - Will be committed (generate takes for these)
+- `DO-NOT-INCLUDE` - Special ChangeSet, skip for now
+- `GITIGNORE` - Add to .gitignore
+- `GITEXCLUDE` - Add to .git/info/exclude
+
+---
+
+## IMMEDIATE PRIORITY: Phase 2.5 - File Selection View
+
+**Goal:** Module-scoped file filtering with disposition assignment BEFORE generating takes
+
+**Why this comes first:**
+- Addresses workflow flaw (wrong scope, no filtering, missing human-in-the-loop)
+- Developer decides what NOT to include before AI generates takes
+- Module-scoped by default with toggle to full-repo
+
+### Step 1: Implement gitutils Filter Support
+
+Add to `gitutils/working.go`:
+
+```go
+// FileFilter is a function that returns true if file should be included
+type FileFilter func(dt.RelFilepath) bool
+
+// GetChangedFilesFiltered returns changed files matching filter
+func (r *Repo) GetChangedFilesFiltered(
+    ctx context.Context,
+    filter FileFilter,
+) (files []dt.RelFilepath, err error)
 ```
-╔═══════════════╦══════════════════╦══════════════════╗
-║ SELECTED TAKE ║ BASELINE         ║ CHANGES          ║
-║ Take 1        ║ 10 func Login()  ║ 10 Login(u) [✓]  ║
-║═══════════════║ 11   // TODO     ║ 11 if u ... [✓]  ║
-║ FILES (focus) ║ 12 }             ║ 12 return... [✓] ║
-║ > auth.go [3] ║                  ║                  ║
-║   user.go [1] ║ ───────────      ║ ───────────────  ║
-╚═══════════════╩══════════════════╩══════════════════╝
+
+**Deliverable:**
+- [ ] FileFilter type defined in gitutils
+- [ ] GetChangedFilesFiltered method implemented
+
+### Step 2: Implement Module-Scoped Filtering
+
+Add to `gompkg`:
+
+```go
+// CreateModuleFileFilter returns a filter for files within module directory
+func CreateModuleFileFilter(moduleDir dt.DirPath) gitutils.FileFilter {
+    return func(file dt.RelFilepath) bool {
+        // Return true if file is within moduleDir
+    }
+}
+
+// AutoDetectModule finds go.mod and returns module directory
+func AutoDetectModule(startDir dt.DirPath) (moduleDir dt.DirPath, err error)
 ```
 
-**Key:** Left pane splits/toggles with hotkey (e.g., 't') to show/hide Takes list.
+**Deliverable:**
+- [ ] CreateModuleFileFilter function implemented
+- [ ] AutoDetectModule function implemented
+- [ ] Module detection tested with real go.mod files
 
-**Right Pane Display:** The right pane should show a unified diff view similar to JetBrains IDEs - showing the changes with line numbers and checkboxes per hunk for assignment to ChangeSets.
+### Step 3: Update File Disposition Types
 
-### GRU Implementation Phases
+Add to `gomtui/types.go`:
 
-#### Phase 3: Basic UI - Takes View (8 hours)
+```go
+type FileDisposition int
+const (
+    Include FileDisposition = iota
+    DoNotInclude  // Special ChangeSet - skip for takes
+    GitIgnore     // Add to .gitignore
+    GitExclude    // Add to .git/info/exclude
+)
+
+type FileWithDisposition struct {
+    Path        dt.RelFilepath
+    Disposition FileDisposition
+    Content     string  // For display in right pane
+    // ... other fields
+}
+```
+
+**Deliverable:**
+- [ ] FileDisposition type and constants defined
+- [ ] FileWithDisposition struct created
+
+### Step 4: Build File Selection View UI
+
+Create `gomtui/file_selection_view.go`:
+
+**Layout**: Two/three-pane
+- Left: Tree view (BubbleTree)
+- Right: File content display
+- Top/indicator: File disposition (INCLUDE/DO-NOT-INCLUDE/GITIGNORE/GITEXCLUDE)
+
+**Features**:
+- Module-scoped file list (default) with toggle to full-repo
+- Auto-detect module from go.mod location
+- Filter changed files to module
+- Mark files with dispositions
+- Persist to `.git/info/commit-files.json` (later - in-memory for now)
+- Can switch back to this view anytime
+
+**Integration**:
+- Implement BubbleTree
+- Two-pane layout with BubbleTea
+- File content display
+- Disposition toggling with keyboard shortcuts
+- Module/repo toggle
+
+**Deliverables:**
+- [ ] Auto-detects module from go.mod
+- [ ] Shows changed files scoped to module (default)
+- [ ] Can toggle to show full repo files
+- [ ] Tree view displays file hierarchy
+- [ ] Right pane shows selected file content
+- [ ] Can mark files as INCLUDE/DO-NOT-INCLUDE/GITIGNORE/GITEXCLUDE
+- [ ] DO-NOT-INCLUDE treated as special ChangeSet
+- [ ] Can navigate with keyboard
+- [ ] Can proceed to Takes View (only INCLUDE files)
+- [ ] Can return to File Selection View later
+
+---
+
+## Phase 3: Basic UI - Takes View
 
 **Goal:** Two-pane UI for browsing Takes and ChangeSets
 
+**Status**: Pending Phase 2.5 completion
+
 **Tasks:**
-1. Create `model.go` with bubbletea Init():
-   ```go
-   func (m EditorState) Init() tea.Cmd {
-       return nil
-   }
-   ```
-2. Create `update.go` with key handlers:
-   ```go
-   func (m EditorState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-       switch msg := msg.(type) {
-       case tea.KeyMsg:
-           switch msg.String() {
-           case "t":
-               return m.toggleTakesView()
-           case "tab":
-               return m.switchPane()
-           case "up", "k":
-               return m.navigateUp()
-           case "down", "j":
-               return m.navigateDown()
-           case "enter":
-               return m.selectItem()
-           case "q":
-               return m, tea.Quit
-           }
-       }
-       return m, nil
-   }
-   ```
-3. Create `takes_view.go` for rendering left pane (Takes mode):
-   ```go
-   func renderTakesList(takes *PlanTakes, selected int, width, height int) string
-   func renderChangeSetsList(take *PlanTake, selected int, width, height int) string
-   ```
-4. Create `view.go` with layout:
-   ```go
-   func (m EditorState) View() string {
-       if m.ViewMode == TakesView {
-           leftPane := renderTakesPane(m)   // Takes + Files
-           middlePane := renderChangeSetsPane(m)
-           rightPane := renderSourcePane(m)
-           return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, middlePane, rightPane)
-       }
-       // FilesView handled in Phase 4
-   }
-   ```
-5. Create `styles.go` with lipgloss styles:
-   ```go
-   var (
-       titleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-       activePaneStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("62"))
-       // ... more styles
-   )
-   ```
+1. Create `model.go` with bubbletea Init()
+2. Create `update.go` with key handlers (t, tab, up/down, enter, q)
+3. Create `takes_view.go` for rendering left pane
+4. Create `view.go` with layout
+5. Create `styles.go` with lipgloss styles
 
 **Deliverables:**
 - [ ] Takes list renders in left pane
@@ -196,70 +217,21 @@ Final output: StagingPlan per ChangeSet with specific hunks
 - [ ] Navigation works (up/down, select Take)
 - [ ] Selecting a Take updates ChangeSets pane
 
-#### Phase 4: Files View - Hunk Refinement (10 hours)
+**Important**: Generate takes ONLY on INCLUDE files from Phase 2.5
+
+---
+
+## Phase 4: Files View - Hunk Refinement
 
 **Goal:** Three-pane diff view for assigning hunks to ChangeSets
 
 **Tasks:**
-1. Create `files_view.go`:
-   ```go
-   func renderFileTree(files []FileWithHunks, selected int, width, height int) string
-   ```
-2. Create `diff_view.go`:
-   ```go
-   func renderBaselinePane(file FileWithHunks, scroll int, width, height int) string
-   func renderChangesPane(file FileWithHunks, activeCS *ChangeSet, scroll int) string
-   ```
-3. Parse git diff into hunks:
-   ```go
-   type FileWithHunks struct {
-       Path  dt.RelFilepath
-       Hunks []Hunk
-   }
-
-   type Hunk struct {
-       Header        HunkHeader
-       BaselineLines []string
-       ChangeLines   []string
-       AssignedToCS  string  // ChangeSet ID
-   }
-
-   func ParseGitDiff(diffOutput string) ([]FileWithHunks, error)
-   ```
-4. Hunk assignment logic:
-   ```go
-   func (m *EditorState) assignHunkToChangeSet(fileIdx, hunkIdx int) error {
-       hunk := m.Files[fileIdx].Hunks[hunkIdx]
-       cs := m.ChangeSets[m.ActiveCS]
-
-       // Use GIT_INDEX_FILE for this ChangeSet
-       os.Setenv("GIT_INDEX_FILE", cs.IndexFile.String())
-       defer os.Unsetenv("GIT_INDEX_FILE")
-
-       // Stage this hunk
-       err := stageHunk(m.CachedRepo.Dir, hunk)
-       if err != nil {
-           return err
-       }
-
-       hunk.AssignedToCS = cs.ID
-       return nil
-   }
-   ```
-5. Update View() for FilesView mode:
-   ```go
-   if m.ViewMode == FilesView {
-       leftPane := renderSelectedTakeInfo(m) + renderFileTree(m)
-       middlePane := renderBaselinePane(m)
-       rightPane := renderChangesPane(m)  // With [✓] checkboxes per hunk
-       return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, middlePane, rightPane)
-   }
-   ```
-6. Key bindings for hunk assignment:
-    - `Space`: Toggle hunk assignment to active ChangeSet
-    - `1-9`: Switch active ChangeSet
-    - `a`: Assign all hunks in file to active ChangeSet
-    - `u`: Unassign hunk
+1. Create `files_view.go` - File tree rendering
+2. Create `diff_view.go` - Baseline/Changes panes
+3. Parse git diff into hunks
+4. Hunk assignment logic with GIT_INDEX_FILE
+5. Update View() for FilesView mode
+6. Key bindings: Space, 1-9, a, u
 
 **Deliverables:**
 - [ ] File tree renders with hunk counts
@@ -268,48 +240,17 @@ Final output: StagingPlan per ChangeSet with specific hunks
 - [ ] Space toggles hunk assignment
 - [ ] GIT_INDEX_FILE correctly set per ChangeSet
 
-**Future Consideration:**
-- Explore using treeview's Comparison Display format as an additional view option for ChangeSets (discuss implementation approach when we reach this phase)
+---
 
-#### Phase 5: ChangeSet Operations (6 hours)
+## Phase 5: ChangeSet Operations
 
 **Goal:** Create, edit, delete, merge ChangeSets
 
 **Tasks:**
-1. Create `changeset_manager.go`:
-   ```go
-   func CreateChangeSet(cacheRepo dt.DirPath, name, rationale string) (*ChangeSet, error)
-   func DeleteChangeSet(cs *ChangeSet) error
-   func MergeChangeSets(cs1, cs2 *ChangeSet, cacheRepo dt.DirPath) (*ChangeSet, error)
-   func EditChangeSet(cs *ChangeSet, name, rationale string) error
-   ```
-2. Add key bindings:
-    - `n`: Create new ChangeSet (prompt for name)
-    - `e`: Edit ChangeSet name/rationale
-    - `d`: Delete ChangeSet (confirmation dialog)
-    - `m`: Merge two ChangeSets
-3. Use `github.com/erikgeiser/promptkit` for dialogs:
-   ```go
-   import "github.com/erikgeiser/promptkit/textinput"
-
-   func promptChangeSetName() (string, error) {
-       input := textinput.New("ChangeSet name:")
-       return input.Run()
-   }
-   ```
-4. ChangeSet metadata persistence:
-   ```go
-   type ChangeSetMeta struct {
-       ID        string
-       Name      string
-       Rationale string
-       TakeNumber int
-       Created   time.Time
-       Modified  time.Time
-   }
-
-   func SaveChangeSetMeta(cacheRepo dt.DirPath, csID string, meta ChangeSetMeta) error
-   ```
+1. Create `changeset_manager.go` with CRUD operations
+2. Add key bindings: n, e, d, m
+3. Use promptkit for dialogs
+4. ChangeSet metadata persistence
 
 **Deliverables:**
 - [ ] Create new ChangeSet from UI
@@ -318,68 +259,18 @@ Final output: StagingPlan per ChangeSet with specific hunks
 - [ ] Merge two ChangeSets into one
 - [ ] Metadata saved to `<projectRepo>/.git/info/changesets/<id>/meta.json`
 
-#### Phase 6: Commit & Persistence (6 hours)
+---
+
+## Phase 6: Commit & Persistence
 
 **Goal:** Commit ChangeSets to user repo, handle persistence
 
 **Tasks:**
-1. Commit workflow:
-   ```go
-   func CommitChangeSet(userRepo *gitutils.Repo, cs *ChangeSet, cacheRepo dt.DirPath) error {
-       // 1. Get staged content from cs.IndexFile
-       os.Setenv("GIT_INDEX_FILE", cs.IndexFile.String())
-       patch, err := generatePatch(cacheRepo)
-
-       // 2. Apply to user repo
-       err = applyPatch(userRepo.Root, patch)
-       if err != nil {
-           return err  // Abort on conflict
-       }
-
-       // 3. Stage in user repo
-       err = stageAppliedChanges(userRepo.Root)
-
-       // 4. Commit
-       message := generateCommitMessage(cs)  // Or user-provided
-       err = createCommit(userRepo.Root, message)
-
-       // 5. Mark ChangeSet as committed
-       cs.Committed = true
-       SaveChangeSetMeta(cacheRepo, cs.ID, cs.ToMeta())
-
-       return nil
-   }
-   ```
-2. Add key binding:
-    - `c`: Commit active ChangeSet (shows message editor first)
-3. Save/Load session state:
-   ```go
-   type SessionState struct {
-       ActiveTake int
-       ActiveCS   int
-       ViewMode   ViewMode
-       // ... other UI state
-   }
-
-   func SaveSession(cacheRepo dt.DirPath, state SessionState) error
-   func LoadSession(cacheRepo dt.DirPath) (*SessionState, error)
-   ```
-4. Handle exit:
-   ```go
-   func (m EditorState) handleExit() error {
-       // Save session for next invocation
-       SaveSession(m.CachedRepo.Dir, m.toSessionState())
-
-       // Release cached worktree
-       m.CachedRepo.Close()
-
-       return nil
-   }
-   ```
-5. **Persistence decision** (user's question: "After commit, do we EVEN NEED to retain staging plans?"):
-    - **Recommendation**: No, delete ChangeSet after successful commit
-    - Rationale: Once committed, the work is done. Keeping it adds clutter.
-    - Exception: If user wants to track commit history, save to `.gomion/committed/` (optional feature)
+1. Commit workflow implementation
+2. Add key binding: c
+3. Save/Load session state
+4. Handle exit gracefully
+5. Delete ChangeSet after successful commit
 
 **Deliverables:**
 - [ ] Commit ChangeSet to user repo successfully
@@ -387,63 +278,19 @@ Final output: StagingPlan per ChangeSet with specific hunks
 - [ ] Session state persists across invocations
 - [ ] Committed ChangeSets are deleted (or archived)
 
-#### Phase 7: Polish & Testing (8 hours)
+---
+
+## Phase 7: Polish & Testing
 
 **Goal:** Error handling, help system, testing
 
 **Tasks:**
-1. Help overlay:
-   ```go
-   func renderHelpOverlay() string {
-       return `
-       gru - Staging Editor
-
-       TAKES VIEW:
-       t       - Toggle Takes list
-       ↑/↓     - Navigate
-       Enter   - Select Take/ChangeSet
-
-       FILES VIEW:
-       Space   - Toggle hunk assignment
-       1-9     - Switch active ChangeSet
-       a       - Assign all hunks in file
-
-       OPERATIONS:
-       n       - New ChangeSet
-       e       - Edit ChangeSet
-       d       - Delete ChangeSet
-       m       - Merge ChangeSets
-       c       - Commit active ChangeSet
-
-       OTHER:
-       Tab     - Switch panes
-       ?       - Toggle help
-       q       - Quit
-       `
-   }
-   ```
-2. Error dialogs:
-   ```go
-   func showErrorDialog(err error) tea.Cmd
-   func showConfirmDialog(message string) (bool, error)
-   ```
-3. Terminal size check:
-   ```go
-   func checkMinimumSize(width, height int) error {
-       if width < 120 || height < 30 {
-           return errors.New("terminal too small (need 120x30 minimum)")
-       }
-       return nil
-   }
-   ```
-4. Unit tests:
-    - `git_index_test.go`: Test GIT_INDEX_FILE operations
-    - `changeset_manager_test.go`: Test CRUD operations
-    - `parser_test.go`: Test git diff parsing
-5. Integration tests:
-    - End-to-end: Generate takes → select → assign hunks → commit
-    - Test with real git repo in temp directory
-6. Manual testing checklist (see Appendix)
+1. Help overlay (? key)
+2. Error dialogs
+3. Terminal size check
+4. Unit tests (git_index, changeset_manager, parser)
+5. Integration tests
+6. Manual testing checklist
 
 **Deliverables:**
 - [ ] Help overlay accessible with '?'
@@ -452,470 +299,127 @@ Final output: StagingPlan per ChangeSet with specific hunks
 - [ ] Unit tests pass
 - [ ] Integration tests pass
 
-#### Phase 8: UI Enhancements (Future)
+---
 
-**Goal:** Improve visualization and user experience based on real-world usage
+## Phase 8: UI Enhancements (Future)
+
+**Goal:** Improve visualization based on real-world usage
 
 **Potential Enhancements:**
-- Changes Overview mode using treeview's Comparison Display format
-- Additional view toggles for different perspectives on changes
-- UI/UX improvements identified during Phases 1-7
+- Additional view toggles
+- UI/UX improvements from testing
 - Performance optimizations for large diffs
 
-**Note:** Keep this phase deliberately open-ended. Once we have the working UI from Phases 1-7, the best enhancements will become apparent through actual use.
+---
 
-### GRU Critical Files & Components
+## Key Files to Create/Modify
 
-#### New Files to Create
+**Phase 2.5 (File Selection View):**
+- `gommod/gitutils/working.go` - Add FileFilter support
+- `gommod/gompkg/module.go` - Module detection and filtering (NEW)
+- `gommod/gomtui/types.go` - Add FileDisposition types
+- `gommod/gomtui/file_selection_view.go` - File selection UI (NEW)
 
-```
-cmd/gru/grumod/grutui
-├── main.go                    # Entry point, CLI flags
-├── model.go                   # Bubbletea model (EditorState)
-├── update.go                  # Update function, key handlers
-├── view.go                    # View function, rendering
-├── takes_view.go              # Take exploration pane rendering
-├── files_view.go              # Files tree pane
-├── diff_view.go               # Baseline/Changes panes
-├── changeset_manager.go       # ChangeSet CRUD operations
-├── git_index.go               # GIT_INDEX_FILE management
-├── styles.go                  # Lipgloss styles
-├── types.go                   # EditorState, ChangeSet, etc.
-└── README.md                  # Usage documentation
-```
+**Phase 3+ (GRU TUI):**
+- `gommod/gomtui/model.go`
+- `gommod/gomtui/update.go`
+- `gommod/gomtui/view.go`
+- `gommod/gomtui/takes_view.go`
+- `gommod/gomtui/files_view.go`
+- `gommod/gomtui/diff_view.go`
+- `gommod/gomtui/changeset_manager.go`
+- `gommod/gomtui/styles.go`
 
-#### File layout for keep track of project info
-```
-<projectRepo>/.git/info/   # In cached repo (gitignored)
-└── changesets/
-    └── <id>/
-    ├── index              # Git index file (authoritative)
-    ├── meta.json          # ChangeSet metadata
-    └── staged.patch       # (optional, informational)
-```
+---
 
-#### Existing Files to Leverage
-
-- `gompkg/gitutils/repo.go` - `Repo.OpenCachedWorktree()` for cached repo
-- `gompkg/gomcfg/plan_takes.go` - for different takes on staging plans
-    - `PlanTakes`
-    - `PlanTake`
-    - `ChangeSet`
-- `gompkg/gompkg/staging_plan.go` - `StagingPlan` (final output format)
-- `gompkg/askai/` - AI integration for generating Takes
-
-#### Gomion Integration Files (Optional, Later)
-
-- `gompkg/gompkg/manage_mode.go` - Could invoke gru with `exec.Command("gru")`
-- Input/output via `.gomion/` directory (not temp files initially)
-
-### GRU Data Flow
+## Data Flow
 
 ```
 1. Launch gru
    ↓
 2. Open user repo + cached repo
    ↓
-3. Load or generate Takes (AI)
+3. [Phase 2.5] File Selection View - module-scoped filtering
    ↓
-4. User selects Take → Creates ChangeSets
+4. Load or generate Takes (AI) - ONLY on INCLUDE files
    ↓
-5. User toggles to Files view
+5. User selects Take → Creates ChangeSets
    ↓
-6. User assigns hunks to ChangeSets (via GIT_INDEX_FILE)
+6. User toggles to Files view
    ↓
-7. User commits ChangeSet
+7. User assigns hunks to ChangeSets (via GIT_INDEX_FILE)
    ↓
-8. Apply patch to user repo → git commit
+8. User commits ChangeSet
    ↓
-9. Mark ChangeSet as committed, delete index
+9. Apply patch to user repo → git commit
    ↓
-10. Repeat for more ChangeSets or quit
-```
-
-### GRU Key Design Decisions
-
-#### 1. Standalone vs. Gomion Integration
-**Decision:** Start standalone, add Gomion integration later
-
-**Rationale:**
-- Simpler development and testing
-- Can be used independently of Gomion
-- Easy to add exec.Command integration later
-
-#### 2. Directory Structure
-**Decision:** `.gomion/` in user repo, `.gru/` in cached repo
-
-**Rationale:**
-- Clear separation of persistent data (.gomion/) vs. working state (.gru/)
-- Aligns with existing Gomion patterns
-- gru-specific internals in .gru/ don't pollute .gomion/
-
-#### 3. Takes Generation
-**Decision:** Generate AI takes on startup (with caching)
-
-**Rationale:**
-- Fresh suggestions for current changes
-- User can request more takes if needed
-- Cache prevents redundant API calls (persists indefinitely until regenerated)
-
-#### 4. Post-Commit Cleanup
-**Decision:** Delete ChangeSet after successful commit
-
-**Rationale:**
-- User asked "do we EVEN NEED to retain staging plans?"
-- Answer: No, committed work is done
-- Reduces clutter, clearer state
-- Can add archive feature later if needed
-
-#### 5. ViewMode Toggle
-**Decision:** Single hotkey ('t') toggles between views
-
-**Rationale:**
-- Simple, memorable
-- Cycles: Takes visible → Takes hidden → Takes visible
-- User's focus determines pane behavior
-
-### GRU Dependencies
-
-```bash
-cd cmd/gru
-go mod init github.com/mikeschinkel/gomion/cmd/gru
-
-go get github.com/charmbracelet/bubbletea@latest
-go get github.com/charmbracelet/lipgloss@latest
-go get github.com/charmbracelet/bubbles@latest
-go get github.com/erikgeiser/promptkit@latest
-go get github.com/Digital-Shane/treeview@latest
-
-# Gomion packages (via replace directive)
-# Already available: gitutils, gomcfg, gompkg, askai
+10. Mark ChangeSet as committed, delete index
 ```
 
 ---
-
-## Implementation Phases
-
-### Phase 4: Staging Plan Selector (MM UI)
-
-**Goal:** Visual take selection and manual editing
-
-**Tasks:**
-1. Add bubbletea dependency to gomion
-2. Create `~/Projects/gomion/gompkg/gomioncliui/plan_selector.go`
-   ```go
-   func ShowPlanSelector(takes *gomcfg.StagingPlanTakes, writer io.Writer) ([]*gompkg.StagingPlan, error)
-   ```
-   - **Two-pane UI:**
-     - Left pane: Selectable list of staging plans (Take 1, Take 2, Take 3, Custom)
-     - Right pane: View of files/changes in the selected plan
-   - Key bindings: [↑↓] navigate, [Enter] select, [e] edit manually, [q] cancel
-   - Manual edit mode: Text editor (bubbletea) with takes concatenated
-   - Parse edited text → create StagingPlans → return
-
-3. Integrate into Manage mode [3] Plan action
-   - Replace text selection with `ShowPlanSelector()`
-   - Returns selected/edited plans
-   - Save to `.gomion/plans/`
-
-**Deliverable:** Visual staging plan selection UI
-
-**UI Layout:**
-```
-╔════════════════════════════════════════════════════════════╗
-║ STAGING PLAN SELECTOR                                      ║
-╠══════════════════════╦═════════════════════════════════════╣
-║ PLANS                ║ SELECTED PLAN DETAILS               ║
-╟──────────────────────╫─────────────────────────────────────╢
-║ > Take 1: By Feature ║ Plan: Add user authentication       ║
-║   Take 2: By Layer   ║ Rationale: Cohesive auth changes    ║
-║   Take 3: By Risk    ║                                     ║
-║   Custom...          ║ Files (3):                          ║
-║                      ║   • auth.go                         ║
-║                      ║   • user.go                         ║
-║                      ║   • middleware.go                   ║
-║                      ║                                     ║
-║                      ║ Plan: Update logging                ║
-║                      ║ Files (2):                          ║
-║                      ║   • logger.go                       ║
-║                      ║   • config.go                       ║
-╠══════════════════════╩═════════════════════════════════════╣
-║ [↑↓] Navigate  [Enter] Select  [e] Edit  [q] Cancel        ║
-╚════════════════════════════════════════════════════════════╝
-```
-
-### Phase 5: Split UI (MM UI - Future)
-
-**Goal:** JetBrains-style hunk assignment
-
-**Tasks:**
-1. Create `~/Projects/gomion/gompkg/gomioncliui/split_editor.go`
-   - Three-pane layout: Files (left) | Baseline (middle) | Changes (right)
-   - Hunk parsing: `git diff --cached --unified=0` → parse @@ headers
-   - Checkbox per hunk for plan assignment
-   - Key bindings: [↑↓] navigate, [Space] toggle, [g] change plan, [s] save
-
-2. Integrate into Manage mode [4] Split action
-   - Launch Split UI
-   - User assigns hunks to plans
-   - Save plans to `.gomion/plans/`
-
-**Deliverable:** Visual line-level staging plan assignment
-
-**UI Layout:**
-```
-╔════════════════════════════════════════════════════════╗
-║ SPLIT EDITOR             Active Plan: Feature A        ║
-╠══════════╦═══════════════╦══════════════════════════════╣
-║ FILES    ║ BASELINE      ║ CHANGES                      ║
-╟──────────╫───────────────╫──────────────────────────────╢
-║ > auth.go║ func Login()  ║ func Login(user *User) [✓]   ║
-║   user.go║   // TODO     ║   if user == nil {      [✓]  ║
-║          ║ }             ║     return ErrNilUser   [✓]  ║
-╚══════════╩═══════════════╩══════════════════════════════╝
-```
-
-**Risk:** Complex UI, time-consuming
-**Mitigation:** Defer to Phase 5 (optional)
-
-### Phase 6: Polish
-
-**Goal:** Refinements and nice-to-haves
-
-**Tasks:**
-- Commit Confirmation MM UI (replace text Y/N)
-- Merge candidates feature (Compose [4])
-- Snapshot restore feature (undo staging changes)
-- Archive cleanup (auto-archive old snapshots/candidates after 30 days)
-- Mode hints ("Try F4 Manage next")
-- Color/highlighting in toggle bar (highlight current mode)
-
-## Critical Files
-
-**Gomion MM UIs (Phase 4+):**
-- `~/Projects/gomion/gompkg/gomioncliui/plan_selector.go` (new, Phase 4) - Two-pane plan selection
-- `~/Projects/gomion/gompkg/gomioncliui/split_editor.go` (new, Phase 5) - Hunk assignment UI
 
 ## Key Design Decisions
 
-**Why modal vs hierarchical?**
-- Modal: Switch between ANY mode at ANY time (flat registry)
-- Hierarchical: Nested function calls (current system)
-- Modal supports complex workflows without deep nesting
-
-**Why F-keys for mode switching?**
-- F2-F12 provide 11 mode slots (F2=mode0, F3=mode1, etc.)
-- More reliable than Ctrl+digit detection across terminals
-- F1 reserved for help
-- Distinguishes mode switching from menu actions (0-9)
-
-**Why store hunk headers + context (not just line numbers)?**
-- Line numbers shift as edits happen
-- Git hunks use @@ -oldStart,oldCount +newStart,newCount @@ format
-- Context lines allow stable application even after upstream changes
-- Follows git's unified diff format
-
-**Why .gomion/ instead of ~/.cache/?**
-- Staging plans/candidates/snapshots are repo-specific
-- Should be version controlled (tracked in git)
-- Closer to git staging semantics
-
-**Why ModeState (not ModeContext)?**
-- Avoids confusion with Go's `context.Context` (cancellation/deadlines/values)
-- Current system uses closure-captured state (anti-pattern)
-- ModeState centralizes all shared state in one discoverable struct
-- Enables testing (mock state), sharing (modes access same object), discovery (all state visible)
-
-## Testing Strategy
-
-**Unit Tests:**
-- cliutil: Ctrl detection, mode switching, exit handling
-- gompkg: JSON round-trips, file I/O, cache keys, mode initialization
-- Modes: Action handlers (mock git/AI calls)
-
-**Integration Tests:**
-- Full workflow: Main → Explore → Manage → Compose → Main
-- Staging plan lifecycle: AI takes → selection → split → stage
-- Candidate lifecycle: Generate → edit → commit → archive
-
-**Manual Tests:**
-- Terminal compatibility (macOS Terminal, iTerm2, Linux)
-- Real commit scenarios with hunk-level staging
-- Multi-commit workflows (multiple plans)
-
-## Risks and Mitigations
-
-| Risk | Mitigation |
-|------|------------|
-| Bubble Tea complexity delays MM UIs | Phases 2-3 work without UIs (text-based), defer complex UIs to Phases 4-5 |
-| Data schema changes require migration | Version all schemas (StagingPlanV1), write ADR for changes, provide migration commands |
-| Git hunk parsing complexity | Store hunk headers + context (not just line numbers), use git apply for precision |
-| ModeState out of sync with git | Refresh on OnEnter, create snapshots before/after changes, show drift warnings |
-| commitmsg API unclear for modal workflow | Defer final API design until modal workflow is implemented, mark for reconsideration |
-
-
-## Next Steps
-
-1. **GRU Phase 3:** Implement basic Takes View UI
-2. **Phase 4 Task 1:** Add bubbletea dependency to gomion
-3. **Phase 4 Task 2:** Create `gomioncliui/plan_selector.go` - Visual plan selector UI
-4. **Phase 4 Task 3:** Integrate plan selector into Manage mode
+1. **Filter Functions for Module Scope** - Keep gitutils language-agnostic, module logic in gompkg
+2. **DO-NOT-INCLUDE as ChangeSet** - Reuse existing data structures, no special cases
+3. **File Selection First** - User decides exclusions before AI generates takes
+4. **Delete After Commit** - No clutter, committed work is done
+5. **Per-ChangeSet Git Index** - Isolated staging via GIT_INDEX_FILE
+6. **Cached Worktree** - User repo untouched until commit
 
 ---
 
-## Appendix: GRU Implementation Reference
+## Build & Test Commands
 
-### Manual Testing Checklist
-
-**Takes View:**
-- [ ] Generate 3 takes via AI
-- [ ] Default "All Changes" take shows first
-- [ ] Navigate Takes list with ↑/↓
-- [ ] Select Take updates ChangeSets pane
-- [ ] Navigate ChangeSets with ↑/↓
-- [ ] Toggle Takes list with 't' key
-
-**Files View:**
-- [ ] File tree shows all changed files
-- [ ] File badges show hunk count
-- [ ] Select file updates Baseline/Changes panes
-- [ ] Baseline shows old code
-- [ ] Changes shows new code with checkboxes
-- [ ] Hunks synchronized (scroll together)
-- [ ] Consider using github.com/Digital-Shane/treeview (https://pkg.go.dev/github.com/Digital-Shane/treeview)
-
-**Hunk Assignment:**
-- [ ] Space toggles hunk assignment
-- [ ] Checkbox updates: [ ] → [✓]
-- [ ] Switch active ChangeSet with 1-9
-- [ ] Assigned hunk shows correct ChangeSet marker
-- [ ] 'a' assigns all hunks in file
-- [ ] 'u' unassigns hunk
-
-**ChangeSet Operations:**
-- [ ] 'n' creates new ChangeSet with prompt
-- [ ] 'e' edits ChangeSet name/rationale
-- [ ] 'd' deletes ChangeSet with confirmation
-- [ ] 'm' merges two ChangeSets
-
-**Commit:**
-- [ ] 'c' prompts for commit message
-- [ ] Commit applies changes to user repo
-- [ ] Commit succeeds with clean message
-- [ ] Conflict aborts cleanly
-- [ ] ChangeSet deleted after commit
-
-**Session:**
-- [ ] Exit with 'q' saves session
-- [ ] Relaunch restores active Take/ChangeSet
-- [ ] ViewMode preserved
-
-**Edge Cases:**
-- [ ] No changes (empty diff)
-- [ ] Large diff (>100 files)
-- [ ] Binary files in diff
-- [ ] Merge conflicts during commit
-- [ ] Terminal resize
-- [ ] Ctrl+C handles gracefully
-
-### Git Diff Parsing
-
-#### Input Format
-
-The editor receives output from:
 ```bash
-git diff --cached --unified=0
+cd ~/Projects/gomion
+
+# Build
+make build
+
+# Build specific modules
+cd gommod && GOEXPERIMENT=jsonv2 go build ./...
+
+# Run
+./bin/gomion
+
+# Test
+cd gommod/gompkg && GOEXPERIMENT=jsonv2 go test -v ./...
+cd gommod/gitutils && GOEXPERIMENT=jsonv2 go test -v ./...
 ```
 
-Example:
-```
-diff --git a/auth.go b/auth.go
-index 1234567..abcdefg 100644
---- a/auth.go
-+++ b/auth.go
-@@ -10,3 +10,5 @@ func Login() {
--    // TODO
-+    if u == nil {
-+        return ErrNilUser
-+    }
- }
-@@ -45,3 +47,5 @@ func Validate() {
-     return true
-+    if u == nil {
-+        return false
-+    }
- }
-```
+---
 
-#### Parsing Requirements
+## Next Steps
 
-1. Extract file paths from `diff --git` lines
-2. Parse `@@` hunk headers (old_start, old_count, new_start, new_count)
-3. Group lines by hunk
-4. Separate `-` (deletions), `+` (additions), ` ` (context) lines
-5. Build HunkHeader with context lines for stable application
+**IMMEDIATE**: Phase 2.5 - File Selection View
+1. Step 1: Implement gitutils FileFilter support
+2. Step 2: Implement module-scoped filtering in gompkg
+3. Step 3: Update file disposition types in gomtui
+4. Step 4: Build File Selection View UI
 
-#### Context Lines
+**THEN**: Phase 3 - Takes View (generate takes ONLY on INCLUDE files)
 
-Store 2-3 lines of context before/after each hunk for stable application:
-- Context helps git apply hunks even if line numbers shift
-- Context stored in `HunkHeader.ContextBefore` and `HunkHeader.ContextAfter`
+**THEN**: Phase 4 - Hunk Assignment View
 
-### Rendering Format Examples
+---
 
-#### File List Pane
+## Questions to Resolve
 
-```
-FILES
-auth.go [3]     ← 3 hunks in this file
-user.go [1]
-> logger.go [2] ← Currently selected
-config.go
-```
+1. ~~Module filter in gompkg or gomcfg?~~ → **gompkg (business logic)**
+2. File disposition persistence? → **`.git/info/commit-files.json`** (later, in-memory for now)
+3. Tree view alternatives? → TBD during implementation
 
-- Show relative file paths
-- Badge `[N]` shows hunk count
-- `>` indicates selection
-- Scroll when list exceeds pane height
+---
 
-#### Baseline Pane
+## Reference Documentation
 
-```
-BASELINE
- 10 func Login() {
- 11     // TODO
- 12 }
-────────────────
- 45 func Validate() {
- 46     return true
- 47 }
-```
+**See DONE.md for:**
+- Phase 1: Foundation & Data Structures (completed)
+- Phase 2: Takes Generation & Loading (completed)
+- Modal Menu System implementation (completed)
 
-- Line numbers from old file
-- Separator between hunks
-- Scroll synchronized with Changes pane
-
-#### Changes Pane
-
-```
-CHANGES
- 10 func Login(u *User) {     [✓]
- 11     if u == nil {          [✓]
- 12         return ErrNilUser  [✓]
- 13     }                      [✓]
-────────────────────────────────────
- 45 func Validate(u) {        [ ]
- 46     if u == nil {          [ ]
- 47         return false       [ ]
- 48     }                      [ ]
- 49     return true            [ ]
-```
-
-- Line numbers from new file
-- Checkbox per hunk (one checkbox represents entire hunk, not per line)
-- `[✓]` = assigned to active ChangeSet
-- `[✗]` = assigned to different ChangeSet (show ChangeSet name on hover)
-- `[ ]` = unassigned
-- Scroll synchronized with Baseline pane
-
-**Important:** Checkbox is per HUNK, not per line. All lines in a hunk share the same checkbox state.
+**See CLAUDE.md for:**
+- Coding conventions
+- Required packages
+- Project purpose and goals

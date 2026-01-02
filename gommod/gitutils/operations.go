@@ -151,23 +151,6 @@ func (s Streamer) Commit(moduleDir dt.DirPath, message string) (err error) {
 
 var ErrStdErrOutput = errors.New("stderr output occurred")
 
-// Status runs git status in the module directory and returns output as a string
-func Status(moduleDir dt.DirPath) (out string, err error) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	err = NewStreamer(&stdout, &stderr).Status(moduleDir)
-	if err != nil {
-		goto end
-	}
-	out = stdout.String()
-	if len(stderr.Bytes()) == 0 {
-		goto end
-	}
-	err = NewErr(ErrStdErrOutput, "stderr", stderr.String(), err)
-end:
-	return out, err
-}
-
 // StageModuleFiles stages only files belonging to the current module (excluding nested modules)
 func StageModuleFiles(moduleDir dt.DirPath) (out string, err error) {
 	var stdout bytes.Buffer

@@ -27,7 +27,7 @@ func (m *ModuleExt) SetGraph(graph *goutils.ModuleGraph) (err error) {
 	var ok bool
 	m.repo, ok = graph.ReposByModuleDir[m.Filepath.Dir()]
 	if !ok {
-		err = NewErr(ErrRepoNotFoundForGoModule,
+		err = NewErr(ErrNoRepoFoundForGoModule,
 			"module_file", m.Filepath,
 		)
 	}

@@ -73,8 +73,45 @@ func (r *Repo) RevParse(ref string) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
+// StatusArgs contains optional arguments for Status()
+type StatusArgs struct {
+	Path          dt.PathSegments // Optional path to check status for
+	HumanReadable bool            // If true, return human-readable format; if false, use --porcelain
+}
+
+// Status returns git status output (package-level function)
+// By default returns machine-readable format (--porcelain)
+// If args.HumanReadable is true, returns human-readable format
+// If args.Path is provided, status is scoped to that path
+func Status(ctx context.Context, root dt.DirPath, args *StatusArgs) (output string, err error) {
+	var cmdArgs []string
+
+	cmdArgs = []string{"status"}
+
+	// Add --porcelain unless HumanReadable is true
+	if args == nil || !args.HumanReadable {
+		cmdArgs = append(cmdArgs, "--porcelain")
+	}
+
+	// Add path if provided
+	if args != nil && args.Path != "" {
+		cmdArgs = append(cmdArgs, string(args.Path))
+	}
+
+	output, err = runGit(ctx, root, cmdArgs...)
+	return output, err
+}
+
+// Status returns git status output
+// By default returns machine-readable format (--porcelain)
+// If args.HumanReadable is true, returns human-readable format
+// If args.Path is provided, status is scoped to that path
+func (r *Repo) Status(ctx context.Context, args *StatusArgs) (output string, err error) {
+	return Status(ctx, r.Root, args)
+}
+
 func (r *Repo) IsDirty() (bool, error) {
-	out, err := r.runGit(context.Background(), r.Root, "status", "--porcelain")
+	out, err := r.Status(context.Background(), nil)
 	if err != nil {
 		return false, err
 	}
@@ -83,7 +120,7 @@ func (r *Repo) IsDirty() (bool, error) {
 
 // IsDirtyInPath checks if there are uncommitted changes within a specific path
 func (r *Repo) IsDirtyInPath(relPath dt.PathSegments) (bool, error) {
-	out, err := r.runGit(context.Background(), r.Root, "status", "--porcelain", string(relPath))
+	out, err := r.Status(context.Background(), &StatusArgs{Path: relPath})
 	if err != nil {
 		return false, err
 	}
@@ -175,7 +212,7 @@ func (r *Repo) StatusCounts() (counts StatusCounts, err error) {
 	var out string
 	var lines []string
 
-	out, err = r.runGit(context.Background(), r.Root, "status", "--porcelain")
+	out, err = r.Status(context.Background(), nil)
 	if err != nil {
 		goto end
 	}
@@ -217,7 +254,7 @@ func (r *Repo) StatusCountsInPath(relPath dt.PathSegments) (counts StatusCounts,
 	var out string
 	var lines []string
 
-	out, err = r.runGit(context.Background(), r.Root, "status", "--porcelain", string(relPath))
+	out, err = r.Status(context.Background(), &StatusArgs{Path: relPath})
 	if err != nil {
 		goto end
 	}
@@ -262,7 +299,7 @@ func (r *Repo) StatusCountsInPathExcluding(relPath dt.PathSegments, excludePaths
 	var pathPrefix string
 
 	// Get status for the entire path
-	out, err = r.runGit(context.Background(), r.Root, "status", "--porcelain", string(relPath))
+	out, err = r.Status(context.Background(), &StatusArgs{Path: relPath})
 	if err != nil {
 		goto end
 	}

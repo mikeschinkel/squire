@@ -7,6 +7,9 @@ import (
 	"github.com/mikeschinkel/go-dt"
 )
 
+// FileFilter is a function that returns true if file should be included
+type FileFilter func(dt.RelFilepath) bool
+
 // GetChangedFiles returns all changed files in the working directory
 // This includes both staged and unstaged changes
 func (r *Repo) GetChangedFiles(ctx context.Context) (files []dt.RelFilepath, err error) {
@@ -16,30 +19,60 @@ func (r *Repo) GetChangedFiles(ctx context.Context) (files []dt.RelFilepath, err
 	// Use git status --porcelain to get all changed files
 	// Format: XY filename
 	// X = staged status, Y = unstaged status
-	out, err = r.runGit(ctx, r.Root, "status", "--porcelain")
+	out, err = r.Status(ctx, nil)
 	if err != nil {
 		goto end
 	}
 
-	lines = strings.Split(strings.TrimSpace(out), "\n")
+	lines = strings.Split(out, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if len(line) == 0 {
 			continue
 		}
 
-		// Status format: "XY filename" where XY are status codes
-		// We want everything after the first 3 characters (XY + space)
-		if len(line) < 4 {
+		// Split on first space only to separate status from filename
+		// Handles filenames with spaces correctly
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) < 2 {
 			continue
 		}
 
-		filename := line[3:]
-		files = append(files, dt.RelFilepath(filename))
+		files = append(files, dt.RelFilepath(parts[1]))
 	}
 
 end:
 	return files, err
+}
+
+// GetChangedFilesFiltered returns changed files matching the filter function
+// This includes both staged and unstaged changes, filtered by the provided function
+func (r *Repo) GetChangedFilesFiltered(
+	ctx context.Context,
+	filter FileFilter,
+) (filtered []dt.RelFilepath, err error) {
+	var allFiles []dt.RelFilepath
+
+	// Get all changed files
+	allFiles, err = r.GetChangedFiles(ctx)
+	if err != nil {
+		goto end
+	}
+
+	// Apply filter if provided
+	if filter != nil {
+		filtered = make([]dt.RelFilepath, 0, len(allFiles))
+		for _, file := range allFiles {
+			if filter(file) {
+				filtered = append(filtered, file)
+			}
+		}
+	} else {
+		filtered = allFiles
+	}
+
+end:
+	return filtered, err
 }
 
 // GetWorkingDiff returns the full diff of all changes in the working directory

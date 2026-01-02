@@ -1,51 +1,24 @@
 package gomtui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mikeschinkel/go-cliutil"
+	"fmt"
+
 	"github.com/mikeschinkel/go-dt"
-	"github.com/mikeschinkel/gomion/gommod/gitutils"
-	"github.com/mikeschinkel/gomion/gommod/gomcfg"
 )
-
-// EditorState is the main bubbletea model for the GRU staging editor
-type EditorState struct {
-	CachedRepo *gitutils.CachedWorktree
-	UserRepo   *gitutils.Repo
-	Takes      *gomcfg.PlanTakes
-	ActiveTake int // 1-based index
-	ActiveCS   int // Active ChangeSet index (1-based)
-	ChangeSets []*ChangeSet
-	Files      []FileWithHunks
-	ViewMode   ViewMode
-	FocusPane  Pane
-	Width      int
-	Height     int
-	Writer     cliutil.Writer
-	Err        error
-}
-
-// ChangeSet represents a logical group of changes within a take
-type ChangeSet struct {
-	ID         string
-	Name       string
-	Rationale  string
-	Files      []dt.RelFilepath
-	IndexFile  dt.Filepath // Path to GIT_INDEX_FILE
-	TakeNumber int         // Which take this belongs to (1-based)
-	Committed  bool
-}
 
 // ViewMode represents which view the user is currently in
 type ViewMode int
 
 const (
-	TakesView ViewMode = iota
+	FileSelectionView ViewMode = iota
+	TakesView
 	FilesView
 )
 
 func (v ViewMode) String() string {
 	switch v {
+	case FileSelectionView:
+		return "File Selection"
 	case TakesView:
 		return "Takes"
 	case FilesView:
@@ -77,6 +50,90 @@ func (p Pane) String() string {
 	}
 }
 
+// FileDisposition represents how a file should be handled in commit workflow
+type FileDisposition byte
+
+const (
+	UnspecifiedDisposition FileDisposition = 0
+	CommitDisposition      FileDisposition = 'c'
+	OmitDisposition        FileDisposition = 'o' // Special ChangeSet - skip for takes
+	GitIgnoreDisposition   FileDisposition = 'i' // Add to .gitignore
+	GitExcludeDisposition  FileDisposition = 'x' // Add to .git/info/exclude
+)
+
+func (d FileDisposition) String() string {
+	switch d {
+	case CommitDisposition:
+		return "Commit"
+	case OmitDisposition:
+		return "Omit"
+	case GitIgnoreDisposition:
+		return ".gitignore"
+	case GitExcludeDisposition:
+		return ".git/info/exclude"
+	default:
+		return "Unknown"
+	}
+}
+
+// IsFileDisposition returns true if the string passed matches a valid file disposition
+func IsFileDisposition(fd FileDisposition) bool {
+	return fd.Key() == string(fd)
+}
+
+// Suffix returns the disposition marker as a suffix (appears after filename)
+func (d FileDisposition) Suffix() string {
+	return fmt.Sprintf("[%s]", d.Key())
+}
+
+// Key returns the disposition key
+func (d FileDisposition) Key() (key string) {
+	if d == 0 {
+		return "?"
+	}
+	switch d {
+	case CommitDisposition, OmitDisposition, GitIgnoreDisposition, GitExcludeDisposition:
+		return string(d)
+	}
+	return "?"
+}
+
+type RGBColor string
+
+const (
+	GreenColor  RGBColor = "#00ff00"
+	GrayColor   RGBColor = "#808080"
+	RedColor    RGBColor = "#ff0000"
+	YellowColor RGBColor = "#ffff00"
+	WhiteColor  RGBColor = "#ffffff"
+	SilverColor RGBColor = "#c0c0c0"
+)
+
+// Color returns the lipgloss color for the disposition
+func (d FileDisposition) Color() string {
+	switch d {
+	case CommitDisposition:
+		return string(GreenColor) // Green
+	case OmitDisposition:
+		return string(GrayColor) // Gray
+	case GitIgnoreDisposition:
+		return string(RedColor) // Red
+	case GitExcludeDisposition:
+		return string(YellowColor) // Yellow
+	case UnspecifiedDisposition:
+		fallthrough
+	default:
+		return string(WhiteColor) // White
+	}
+}
+
+// FileWithDisposition represents a file with its disposition and content for display
+type FileWithDisposition struct {
+	Path        dt.RelFilepath
+	Disposition FileDisposition
+	Content     string // For display in right pane
+}
+
 // FileWithHunks represents a file and its parsed hunks
 type FileWithHunks struct {
 	Path  dt.RelFilepath
@@ -98,24 +155,4 @@ type HunkHeader struct {
 	NewStart int
 	NewCount int
 	Context  string // The part after @@, e.g., "func Login()"
-}
-
-// Ensure EditorState implements tea.Model interface
-var _ tea.Model = (*EditorState)(nil)
-
-// Init implements tea.Model
-func (m EditorState) Init() tea.Cmd {
-	return nil
-}
-
-// Update implements tea.Model (will be implemented in update.go)
-func (m EditorState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Placeholder - will be implemented in update.go
-	return m, nil
-}
-
-// View implements tea.Model (will be implemented in view.go)
-func (m EditorState) View() string {
-	// Placeholder - will be implemented in view.go
-	return "GRU Staging Editor - Loading..."
 }

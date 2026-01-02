@@ -17,6 +17,17 @@ const (
 
 var changeSetPaths = make(map[string]dt.DirPath)
 
+// ChangeSet represents a logical group of changes within a take
+type ChangeSet struct {
+	ID         string
+	Name       string
+	Rationale  string
+	Files      []dt.RelFilepath
+	IndexFile  dt.Filepath // Path to GIT_INDEX_FILE
+	TakeNumber int         // Which take this belongs to (1-based)
+	Committed  bool
+}
+
 // getChangeSetsPath returns the path to the changesets directory
 func (cs *ChangeSet) getChangeSetsPath(projectRoot dt.DirPath) dt.DirPath {
 	return dt.DirPathJoin3(projectRoot, gitutils.InfoPath, ChangeSetsDir)

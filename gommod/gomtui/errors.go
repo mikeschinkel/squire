@@ -13,4 +13,7 @@ var (
 
 	// ErrGitIndex represents Git index file errors
 	ErrGitIndex = errors.New("git index error")
+
+	// ErrNoChangedFiles indicates no files have been changed
+	ErrNoChangedFiles = errors.New("no changed files")
 )
