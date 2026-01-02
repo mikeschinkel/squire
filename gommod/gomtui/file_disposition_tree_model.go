@@ -12,20 +12,42 @@ import (
 
 // FileDispositionTreeModel wraps bubbletree.Model for hierarchical file display
 type FileDispositionTreeModel struct {
-	model bubbletree.Model[FileWithDisposition]
+	model bubbletree.Model[File]
 }
 
 // NewFileDispositionTreeModel creates a new folder tree model from a flat list of files
-func NewFileDispositionTreeModel(files []FileWithDisposition, width, height int) FileDispositionTreeModel {
+func NewFileDispositionTreeModel(files []File, width, height int) FileDispositionTreeModel {
 	// Build tree hierarchy
 	rootNodes := buildFileDispositionTreeHierarchy(files)
 
 	// Create tree with custom provider
-	tree := bubbletree.NewTree[FileWithDisposition](rootNodes, &bubbletree.TreeArgs[FileWithDisposition]{
+	tree := bubbletree.NewTree[File](rootNodes, &bubbletree.TreeArgs[File]{
 		NodeProvider: NewFileDispositionNodeProvider(),
 	})
 
 	// Create BubbleTea model
+	model := bubbletree.NewModel(tree, width, height)
+
+	return FileDispositionTreeModel{
+		model: model,
+	}
+}
+
+// NewEmptyFileDispositionTreeModel creates an empty tree with a message
+func NewEmptyFileDispositionTreeModel(message string, width, height int) FileDispositionTreeModel {
+	// Create a single node with the message
+	nodes := []*FileDispositionNode{
+		bubbletree.NewNode("empty", message, File{
+			Path:        dt.RelFilepath(""),
+			Disposition: UnspecifiedDisposition,
+			Content:     "",
+		}),
+	}
+
+	tree := bubbletree.NewTree[File](nodes, &bubbletree.TreeArgs[File]{
+		NodeProvider: NewFileDispositionNodeProvider(),
+	})
+
 	model := bubbletree.NewModel(tree, width, height)
 
 	return FileDispositionTreeModel{
@@ -51,7 +73,7 @@ func (m FileDispositionTreeModel) View() string {
 }
 
 // GetSelectedFile returns the currently selected file/folder
-func (m FileDispositionTreeModel) GetSelectedFile() *FileWithDisposition {
+func (m FileDispositionTreeModel) GetSelectedFile() *File {
 	node := m.model.GetFocusedNode()
 	if node == nil {
 		return nil
@@ -77,9 +99,9 @@ func (m FileDispositionTreeModel) GetMaxVisibleWidth() int {
 
 // buildFileDispositionTreeHierarchy creates a hierarchical tree from flat file list
 // Returns the top-level nodes directly (no wrapper root) to save indentation
-func buildFileDispositionTreeHierarchy(files []FileWithDisposition) []*FileDispositionNode {
+func buildFileDispositionTreeHierarchy(files []File) []*FileDispositionNode {
 	// Create temporary root for building, but we'll return its children
-	root := bubbletree.NewNode(".", ".", FileWithDisposition{
+	root := bubbletree.NewNode(".", ".", File{
 		Path:        dt.RelFilepath("."),
 		Disposition: CommitDisposition,
 		Content:     "",
@@ -115,7 +137,7 @@ func buildFileDispositionTreeHierarchy(files []FileWithDisposition) []*FileDispo
 				folderNode := bubbletree.NewNode(
 					currentPath,                // id
 					filepath.Base(currentPath), // name (basename for display)
-					FileWithDisposition{
+					File{
 						Path:        dt.RelFilepath(currentPath),
 						Disposition: CommitDisposition,
 						Content:     "",

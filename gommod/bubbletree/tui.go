@@ -119,6 +119,9 @@ func (m Model[T]) View() string {
 	start := m.viewport.YOffset
 	end := start + m.viewport.Height
 
+	if end < 0 {
+		return ""
+	}
 	if start >= len(lines) {
 		return ""
 	}

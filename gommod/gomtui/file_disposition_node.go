@@ -4,4 +4,4 @@ import (
 	"github.com/mikeschinkel/gomion/gommod/bubbletree"
 )
 
-type FileDispositionNode = bubbletree.Node[FileWithDisposition]
+type FileDispositionNode = bubbletree.Node[File]

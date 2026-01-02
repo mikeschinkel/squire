@@ -35,7 +35,7 @@ func (p *CompactNodeProvider[T]) BranchStyle() BranchStyle {
 }
 
 // NewCompactNodeProvider creates a new compact provider using CompactStyle defaults
-func NewCompactNodeProvider[T any](ec *ExpanderControls) *CompactNodeProvider[T] {
+func NewCompactNodeProvider[T any](ec ExpanderControls) *CompactNodeProvider[T] {
 	return &CompactNodeProvider[T]{
 		branchStyle: CompactBranchStyle(ec),
 	}

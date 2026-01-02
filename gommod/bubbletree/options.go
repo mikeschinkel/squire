@@ -8,17 +8,17 @@ type ExpanderControls struct {
 	NotApplicable string
 }
 
-var PlusExpanderControls = &ExpanderControls{
+var PlusExpanderControls = ExpanderControls{
 	Expand:        "+",
 	Collapse:      "─",
 	NotApplicable: "",
 }
-var NoExpanderControls = &ExpanderControls{
+var NoExpanderControls = ExpanderControls{
 	Expand:        "",
 	Collapse:      "",
 	NotApplicable: "",
 }
-var TriangleExpanderControls = &ExpanderControls{
+var TriangleExpanderControls = ExpanderControls{
 	Expand:        "▶",
 	Collapse:      "▼",
 	NotApplicable: "",
@@ -53,13 +53,13 @@ type BranchStyle struct {
 	// EmptySpace is the character for empty space (e.g., "  ", "   ")
 	EmptySpace string
 
-	ExpanderControls *ExpanderControls
+	ExpanderControls ExpanderControls
 }
 
 // Predefined branch styles
 
 // DefaultBranchStyle uses compact spacing with Unicode box-drawing characters
-func DefaultBranchStyle(ec *ExpanderControls) BranchStyle {
+func DefaultBranchStyle(ec ExpanderControls) BranchStyle {
 	return BranchStyle{
 		PreExpanderIndent: " ", // One space before expander
 		PreIconIndent:     " ", // One space before text
@@ -70,7 +70,7 @@ func DefaultBranchStyle(ec *ExpanderControls) BranchStyle {
 }
 
 // CompactBranchStyle uses compact spacing with Unicode box-drawing characters
-func CompactBranchStyle(ec *ExpanderControls) (bs BranchStyle) {
+func CompactBranchStyle(ec ExpanderControls) (bs BranchStyle) {
 	bs = DefaultBranchStyle(ec)
 	bs.Vertical = "│"         // Vertical line + space for next level
 	bs.Horizontal = "─"       // Horizonal line + space for next level
@@ -82,7 +82,7 @@ func CompactBranchStyle(ec *ExpanderControls) (bs BranchStyle) {
 }
 
 // ASCIIBranchStyle uses ASCII characters for maximum compatibility
-func ASCIIBranchStyle(ec *ExpanderControls) BranchStyle {
+func ASCIIBranchStyle(ec ExpanderControls) BranchStyle {
 	return BranchStyle{
 		Vertical:          "| ",
 		MiddleChild:       "+- ",
@@ -96,7 +96,7 @@ func ASCIIBranchStyle(ec *ExpanderControls) BranchStyle {
 }
 
 // WideBranchStyle uses 4-space indentation (like standard treeview)
-func WideBranchStyle(ec *ExpanderControls) BranchStyle {
+func WideBranchStyle(ec ExpanderControls) BranchStyle {
 	return BranchStyle{
 		Vertical:          "│   ",
 		MiddleChild:       "├── ",
@@ -110,7 +110,7 @@ func WideBranchStyle(ec *ExpanderControls) BranchStyle {
 }
 
 // MinimalBranchStyle uses minimal spacing (1 char per level)
-func MinimalBranchStyle(ec *ExpanderControls) BranchStyle {
+func MinimalBranchStyle(ec ExpanderControls) BranchStyle {
 	return BranchStyle{
 		Vertical:          "│",
 		MiddleChild:       "├",

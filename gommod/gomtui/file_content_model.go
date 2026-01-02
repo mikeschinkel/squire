@@ -40,10 +40,22 @@ func (m FileContentModel) View() string {
 	return m.viewport.View()
 }
 
-// SetContent updates the displayed content
-func (m FileContentModel) SetContent(content string) FileContentModel {
+// SetContent updates the displayed content and sets scroll position
+func (m FileContentModel) SetContent(content string, yOffset int) FileContentModel {
 	m.content = content
 	m.viewport.SetContent(content)
+	m.viewport.YOffset = yOffset
+	return m
+}
+
+// YOffset returns the current scroll position
+func (m FileContentModel) YOffset() int {
+	return m.viewport.YOffset
+}
+
+// SetYOffset sets the scroll position
+func (m FileContentModel) SetYOffset(yOffset int) FileContentModel {
+	m.viewport.YOffset = yOffset
 	return m
 }
 

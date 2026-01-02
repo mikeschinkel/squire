@@ -37,7 +37,10 @@ type EditorState struct {
 	ChangeSets []*ChangeSet
 
 	// Files View state (hunk assignment)
-	Files []FileWithHunks
+	Files []File
+
+	// File content cache: path → File (Content and YOffset populated)
+	FileCache map[dt.RelFilepath]*File
 
 	// UI state
 	ViewMode       ViewMode
@@ -102,6 +105,8 @@ func (es EditorState) View() string {
 func (es EditorState) initFileSelectionView(ctx context.Context) (EditorState, error) {
 	es.ModuleScoped = true
 	es.ViewportsReady = false // Will be set true after first WindowSizeMsg
+	es.FocusPane = LeftPane
+	es.FileCache = make(map[dt.RelFilepath]*File)
 	return es, nil
 }
 
@@ -121,7 +126,7 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 
 		// Initialize models on first WindowSizeMsg
 		if !es.ViewportsReady {
-			var files []FileWithDisposition
+			var files []File
 			var err error
 
 			// Load changed files scoped to module
@@ -133,7 +138,14 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 
 			// Check if there are no changed files
 			if len(files) == 0 {
-				es.Err = NewErr(ErrNoChangedFiles)
+				// Show message in tree view instead of erroring
+				es.FolderTree = NewEmptyFileDispositionTreeModel(
+					"No changed files available for commit in current module.\n\n"+
+						"Use 'm' to toggle between module and repository scope.",
+					paneWidth,
+					paneHeight,
+				)
+				es.FileContent = NewFileContentModel(paneWidth, paneHeight)
 				es.ViewportsReady = true
 				return es, nil
 			}
@@ -144,7 +156,15 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 
 			// Load initial file content
 			if selectedFile := es.FolderTree.GetSelectedFile(); selectedFile != nil {
-				es.FileContent = es.FileContent.SetContent(selectedFile.Content)
+				if selectedNode := es.FolderTree.GetSelectedNode(); selectedNode != nil && !selectedNode.HasChildren() {
+					actualPath := es.getActualPath(selectedFile.Path)
+					content, yOffset, err := es.loadFileContent(actualPath)
+					if err != nil {
+						content = fmt.Sprintf("Error loading file:\n%v", err)
+						yOffset = 0
+					}
+					es.FileContent = es.FileContent.SetContent(content, yOffset)
+				}
 			}
 
 			es.ViewportsReady = true
@@ -158,18 +178,69 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 
 	case tea.KeyMsg:
 		ms := msg.String()
-		fd := FileDisposition(ms[0])
-		if IsFileDisposition(fd) {
-			// Disposition changes
-			return es.setDisposition(fd), nil
-		}
 
+		// Global keys (always work)
 		switch ms {
 		case "q", "ctrl+c":
 			return es, tea.Quit
+		}
 
+		// Check if tree is empty (no files to commit)
+		selectedFile := es.FolderTree.GetSelectedFile()
+		isEmpty := selectedFile == nil || selectedFile.Path == ""
+
+		// View-specific keys (disabled when tree is empty)
+		if !isEmpty {
+			fd := FileDisposition(ms[0])
+			if IsFileDisposition(fd) {
+				// Disposition changes
+				return es.setDisposition(fd), nil
+			}
+
+			switch ms {
+			case "tab":
+				// Save scroll position before switching
+				selectedFile := es.FolderTree.GetSelectedFile()
+				if selectedFile != nil && es.FocusPane == RightPane {
+					es.updateFileCache(selectedFile.Path, es.FileContent.YOffset())
+				}
+
+				// Rotate right: Left → Right → Left
+				if es.FocusPane == LeftPane {
+					es.FocusPane = RightPane
+				} else {
+					es.FocusPane = LeftPane
+				}
+				return es, nil
+
+			case "shift+tab":
+				// Save scroll position before switching
+				selectedFile := es.FolderTree.GetSelectedFile()
+				if selectedFile != nil && es.FocusPane == RightPane {
+					es.updateFileCache(selectedFile.Path, es.FileContent.YOffset())
+				}
+
+				// Rotate left: Right → Left → Right
+				if es.FocusPane == RightPane {
+					es.FocusPane = LeftPane
+				} else {
+					es.FocusPane = RightPane
+				}
+				return es, nil
+			}
+		}
+
+		// Module toggle works both when empty and not empty
+		switch ms {
 		case "m": // Toggle module-scoped / full-repo
 			es.ModuleScoped = !es.ModuleScoped
+
+			// Clear cache (file paths change with module scope)
+			es.FileCache = make(map[dt.RelFilepath]*File)
+
+			// Reset focus to tree
+			es.FocusPane = LeftPane
+
 			var err error
 			files, err := es.loadSelectedFiles(ctx)
 			if err != nil {
@@ -181,21 +252,45 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 			paneHeight := es.Height - 6
 			es.FolderTree = NewFileDispositionTreeModel(files, paneWidth, paneHeight)
 			return es, nil
-
-		case "enter":
-			// Proceed to Takes View
-			es.ViewMode = TakesView
-			return es, nil
 		}
 	}
 
-	// Delegate to FolderTree for navigation
-	es.FolderTree, cmd = es.FolderTree.Update(msg)
-	cmds = append(cmds, cmd)
+	// Delegate based on focused pane
+	switch es.FocusPane {
+	case LeftPane:
+		// Tree has focus - handle navigation
+		es.FolderTree, cmd = es.FolderTree.Update(msg)
+		cmds = append(cmds, cmd)
 
-	// Update file content when selection changes
-	if selectedFile := es.FolderTree.GetSelectedFile(); selectedFile != nil {
-		es.FileContent = es.FileContent.SetContent(selectedFile.Content)
+		// Update file content when tree selection changes
+		selectedFile := es.FolderTree.GetSelectedFile()
+		if selectedFile != nil {
+			selectedNode := es.FolderTree.GetSelectedNode()
+			if selectedNode != nil && !selectedNode.HasChildren() {
+				// Load with cache (loadFileContent() now handles caching)
+				actualPath := es.getActualPath(selectedFile.Path)
+				content, yOffset, err := es.loadFileContent(actualPath)
+				if err != nil {
+					content = fmt.Sprintf("Error loading file:\n%v", err)
+					yOffset = 0
+				}
+				es.FileContent = es.FileContent.SetContent(content, yOffset)
+			} else {
+				// Folder selected - clear content
+				es.FileContent = es.FileContent.SetContent("", 0)
+			}
+		}
+
+	case RightPane:
+		// File content has focus - handle scrolling
+		es.FileContent, cmd = es.FileContent.Update(msg)
+		cmds = append(cmds, cmd)
+
+		// Update cache with current scroll position
+		selectedFile := es.FolderTree.GetSelectedFile()
+		if selectedFile != nil {
+			es.updateFileCache(selectedFile.Path, es.FileContent.YOffset())
+		}
 	}
 
 	return es, tea.Batch(cmds...)
@@ -243,7 +338,7 @@ func (es EditorState) renderFileSelectionView() string {
 	var sb strings.Builder
 
 	// Header
-	scope := fmt.Sprintf("Module=%s", es.ModuleDir)
+	scope := fmt.Sprintf("Module=%s", renderRGBColor(es.ModuleDir.ToTilde(dt.OrFullPath), GreenColor))
 	if !es.ModuleScoped {
 		scope = fmt.Sprintf("Repo=%s", es.UserRepo.Root)
 	}
@@ -251,7 +346,7 @@ func (es EditorState) renderFileSelectionView() string {
 	header := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("6")).
-		Render("File Disposition View: " + scope)
+		Render("Files to Commit: " + scope)
 
 	menu := fmt.Sprintf("↑/↓:Navigate | ←/→:Expand/Collapse | %s:Commit | %s:Omit | %s:.gitignore | %s:.git/exclude | m:Module/Repo | Enter:Continue | q:Quit",
 		CommitDisposition.Key(),
@@ -280,6 +375,16 @@ func (es EditorState) renderFileSelectionView() string {
 	es.FolderTree = es.FolderTree.SetSize(treeContentWidth, paneHeight)
 	es.FileContent = es.FileContent.SetSize(contentWidth, paneHeight)
 
+	// Calculate border colors based on focus
+	leftBorderColor := GrayColor  // Unfocused
+	rightBorderColor := GrayColor // Unfocused
+
+	if es.FocusPane == LeftPane {
+		leftBorderColor = CyanColor // Focused
+	} else if es.FocusPane == RightPane {
+		rightBorderColor = CyanColor // Focused
+	}
+
 	// Create styled panes - use same width values for consistency
 	basePaneStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
@@ -288,13 +393,13 @@ func (es EditorState) renderFileSelectionView() string {
 	leftPane := basePaneStyle.
 		PaddingLeft(1).
 		PaddingRight(1).
-		BorderForeground(lipgloss.Color("6")).
+		BorderForeground(lipgloss.Color(leftBorderColor)).
 		Render(es.FolderTree.View())
 
 	rightPane := basePaneStyle.
 		Width(contentWidth + 3). // +2 for borders, +1 for left padding
 		PaddingLeft(1).          // Consistent with left pane
-		BorderForeground(lipgloss.Color("8")).
+		BorderForeground(lipgloss.Color(rightBorderColor)).
 		Render(es.FileContent.View())
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
@@ -309,7 +414,7 @@ func (es EditorState) renderFileSelectionView() string {
 }
 
 // loadSelectedFiles loads changed files, optionally filtered to module scope
-func (es EditorState) loadSelectedFiles(ctx context.Context) (files []FileWithDisposition, err error) {
+func (es EditorState) loadSelectedFiles(ctx context.Context) (files []File, err error) {
 	var changedFiles []dt.RelFilepath
 	var filter func(dt.RelFilepath) bool
 
@@ -328,8 +433,8 @@ func (es EditorState) loadSelectedFiles(ctx context.Context) (files []FileWithDi
 		goto end
 	}
 
-	// Convert to FileWithDisposition (default to Include)
-	files = make([]FileWithDisposition, len(changedFiles))
+	// Convert to File (default to Include)
+	files = make([]File, len(changedFiles))
 	for i, path := range changedFiles {
 		displayPath := path
 
@@ -342,7 +447,7 @@ func (es EditorState) loadSelectedFiles(ctx context.Context) (files []FileWithDi
 			}
 		}
 
-		files[i] = FileWithDisposition{
+		files[i] = File{
 			Path:        displayPath,
 			Disposition: CommitDisposition,
 			Content:     "", // Will be loaded on demand
@@ -353,17 +458,40 @@ end:
 	return files, err
 }
 
-// loadFileContent loads the content of a file from disk
-func (es EditorState) loadFileContent(path dt.RelFilepath) (content string, err error) {
+// getActualPath restores the full repo-relative path from display path
+// When module-scoped, display paths have module prefix stripped, so we restore it
+func (es EditorState) getActualPath(displayPath dt.RelFilepath) dt.RelFilepath {
+	if !es.ModuleScoped || es.ModuleRelPath == "" {
+		return displayPath
+	}
+
+	// Restore module prefix
+	return dt.RelFilepath(string(es.ModuleRelPath) + "/" + string(displayPath))
+}
+
+// loadFileContent loads file content, using cache if available
+func (es EditorState) loadFileContent(path dt.RelFilepath) (content string, yOffset int, err error) {
 	var filepath dt.Filepath
 	var bytes []byte
 	var actualPath dt.RelFilepath
+	var cached *File
+	var ok bool
+	var pathStr string
+	var parts []string
+
+	// Check cache first
+	cached, ok = es.FileCache[path]
+	if ok {
+		content = cached.Content
+		yOffset = cached.YOffset
+		goto end
+	}
 
 	// Handle renamed files (format: "oldpath -> newpath")
 	// For renamed files, use the new path
-	pathStr := string(path)
+	pathStr = string(path)
 	if strings.Contains(pathStr, " -> ") {
-		parts := strings.Split(pathStr, " -> ")
+		parts = strings.Split(pathStr, " -> ")
 		actualPath = dt.RelFilepath(strings.TrimSpace(parts[1]))
 	} else {
 		actualPath = path
@@ -381,6 +509,26 @@ func (es EditorState) loadFileContent(path dt.RelFilepath) (content string, err 
 
 	content = string(bytes)
 
+	// Cache it
+	es.FileCache[path] = &File{
+		Path:    path,
+		Content: content,
+		YOffset: 0,
+	}
+
+	yOffset = 0
+
 end:
-	return content, err
+	return content, yOffset, err
+}
+
+// updateFileCache updates the cached scroll position for a file
+func (es *EditorState) updateFileCache(path dt.RelFilepath, yOffset int) {
+	var cached *File
+	var ok bool
+
+	cached, ok = es.FileCache[path]
+	if ok {
+		cached.YOffset = yOffset
+	}
 }

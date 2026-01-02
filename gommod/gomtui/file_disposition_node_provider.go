@@ -8,17 +8,17 @@ import (
 	"github.com/mikeschinkel/gomion/gommod/bubbletree"
 )
 
-// FileDispositionNodeProvider implements bubbletree.NodeProvider for FileWithDisposition nodes
+// FileDispositionNodeProvider implements bubbletree.NodeProvider for File nodes
 type FileDispositionNodeProvider struct {
-	bubbletree.NodeProvider[FileWithDisposition]
+	bubbletree.NodeProvider[File]
 }
 
 // NewFileDispositionNodeProvider creates a new file node provider with compact 2-space indentation
 func NewFileDispositionNodeProvider() *FileDispositionNodeProvider {
 	return &FileDispositionNodeProvider{
-		NodeProvider: bubbletree.NewCompactNodeProvider[FileWithDisposition](bubbletree.TriangleExpanderControls),
-		//NodeProvider: bubbletree.NewCompactNodeProvider[FileWithDisposition](bubbletree.PlusExpanderControls),
-		//NodeProvider: bubbletree.NewCompactNodeProvider[FileWithDisposition](bubbletree.NoExpanderControls),
+		NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.TriangleExpanderControls),
+		//NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.PlusExpanderControls),
+		//NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.NoExpanderControls),
 	}
 }
 
@@ -29,8 +29,8 @@ func (p *FileDispositionNodeProvider) Text(node *FileDispositionNode) string {
 
 // Suffix returns the file disposition suffix
 func (p *FileDispositionNodeProvider) Suffix(node *FileDispositionNode) string {
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(node.Data().Disposition.Color()))
-	return fmt.Sprintf("[%s]", style.Render(node.Data().Disposition.Key()))
+	d := node.Data().Disposition
+	return fmt.Sprintf("[%s]", renderRGBColor(d.Key(), d.RGBColor()))
 }
 
 //// Icon returns the expand/collapse indicator for folders, empty for files
@@ -45,8 +45,8 @@ func (p *FileDispositionNodeProvider) Suffix(node *FileDispositionNode) string {
 //}
 
 // Style returns the lipgloss style based on disposition and focus state
-func (p *FileDispositionNodeProvider) Style(node *FileDispositionNode, tree *bubbletree.Tree[FileWithDisposition]) (style lipgloss.Style) {
-	style = lipgloss.NewStyle().Foreground(lipgloss.Color(node.Data().Disposition.Color()))
+func (p *FileDispositionNodeProvider) Style(node *FileDispositionNode, tree *bubbletree.Tree[File]) (style lipgloss.Style) {
+	style = styleWithRGBColor(node.Data().Disposition.RGBColor())
 	if tree.IsFocusedNode(node) {
 		// Use inverse video for better accessibility
 		return style.Reverse(true)

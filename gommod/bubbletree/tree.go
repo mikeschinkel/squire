@@ -20,10 +20,10 @@ func NewTree[T any](nodes []*Node[T], args *TreeArgs[T]) *Tree[T] {
 		args = &TreeArgs[T]{}
 	}
 	if args.ExpanderControls == nil {
-		args.ExpanderControls = TriangleExpanderControls
+		args.ExpanderControls = &TriangleExpanderControls
 	}
 	if args.NodeProvider == nil {
-		args.NodeProvider = NewCompactNodeProvider[T](args.ExpanderControls)
+		args.NodeProvider = NewCompactNodeProvider[T](*args.ExpanderControls)
 	}
 	t := &Tree[T]{
 		nodes:       nodes,
