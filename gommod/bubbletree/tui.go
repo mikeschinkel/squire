@@ -209,13 +209,13 @@ func (m Model[T]) SetSize(width, height int) Model[T] {
 	return m
 }
 
-// GetMaxLineWidth returns the maximum line width needed to display all content
-func (m Model[T]) GetMaxLineWidth() int {
+// MaxLineWidth returns the maximum line width needed to display all content
+func (m Model[T]) MaxLineWidth() int {
 	return m.renderer.GetMaxLineWidth()
 }
 
-// GetFocusedNode returns the currently focused node
-func (m Model[T]) GetFocusedNode() *Node[T] {
+// FocusedNode returns the currently focused node
+func (m Model[T]) FocusedNode() *Node[T] {
 	return m.tree.FocusedNode()
 }
 

@@ -16,4 +16,10 @@ var (
 
 	// ErrNoChangedFiles indicates no files have been changed
 	ErrNoChangedFiles = errors.New("no changed files")
+
+	// ErrFileStatFailed indicates file stat operation failed
+	ErrFileStatFailed = errors.New("file stat failed")
+
+	// ErrInvalidGitStatusCode indicates invalid git status code
+	ErrInvalidGitStatusCode = errors.New("invalid git status code")
 )

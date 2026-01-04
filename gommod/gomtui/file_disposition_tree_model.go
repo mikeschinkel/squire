@@ -72,18 +72,18 @@ func (m FileDispositionTreeModel) View() string {
 	return m.model.View()
 }
 
-// GetSelectedFile returns the currently selected file/folder
-func (m FileDispositionTreeModel) GetSelectedFile() *File {
-	node := m.model.GetFocusedNode()
+// SelectedFile returns the currently selected file/folder
+func (m FileDispositionTreeModel) SelectedFile() *File {
+	node := m.model.FocusedNode()
 	if node == nil {
 		return nil
 	}
 	return node.Data()
 }
 
-// GetSelectedNode returns the currently selected node
-func (m FileDispositionTreeModel) GetSelectedNode() *FileDispositionNode {
-	return m.model.GetFocusedNode()
+// SelectedNode returns the currently selected node
+func (m FileDispositionTreeModel) SelectedNode() *FileDispositionNode {
+	return m.model.FocusedNode()
 }
 
 // SetSize updates the model dimensions
@@ -92,9 +92,14 @@ func (m FileDispositionTreeModel) SetSize(width, height int) FileDispositionTree
 	return m
 }
 
-// GetMaxVisibleWidth calculates the actual width of the longest rendered line
-func (m FileDispositionTreeModel) GetMaxVisibleWidth() int {
-	return m.model.GetMaxLineWidth()
+// MaxVisibleWidth calculates the actual width of the longest rendered line
+func (m FileDispositionTreeModel) MaxVisibleWidth() int {
+	return m.model.MaxLineWidth()
+}
+
+// LayoutWidth returns the width this component needs for layout purposes.
+func (m FileDispositionTreeModel) LayoutWidth() int {
+	return m.MaxVisibleWidth()
 }
 
 // buildFileDispositionTreeHierarchy creates a hierarchical tree from flat file list

@@ -110,6 +110,23 @@ func (r *Repo) Status(ctx context.Context, args *StatusArgs) (output string, err
 	return Status(ctx, r.Root, args)
 }
 
+func (r *Repo) StatusMap(ctx context.Context, args *StatusArgs) (m StatusMap, err error) {
+	var output string
+	output, err = r.Status(ctx, args)
+	if err != nil {
+		goto end
+	}
+
+	// Parse git status
+	m, err = ParseStatus(output)
+	if err != nil {
+		goto end
+	}
+
+end:
+	return m, err
+}
+
 func (r *Repo) IsDirty() (bool, error) {
 	out, err := r.Status(context.Background(), nil)
 	if err != nil {

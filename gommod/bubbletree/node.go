@@ -79,7 +79,7 @@ func (n *Node[T]) Parent() *Node[T] {
 
 // HasChildren returns true if the node has children
 func (n *Node[T]) HasChildren() bool {
-	return len(n.children) > 0
+	return n != nil && len(n.children) > 0
 }
 
 // IsExpanded returns true if the node is expanded
