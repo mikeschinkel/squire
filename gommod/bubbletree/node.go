@@ -3,14 +3,13 @@ package bubbletree
 // Node represents a single node in the tree with generic data
 // Design adopted from github.com/Digital-Shane/treeview with simplifications
 type Node[T any] struct {
-	id               string
-	name             string
-	data             T
-	children         []*Node[T]
-	parent           *Node[T]
-	expanded         bool
-	visible          bool
-	hasGrandChildren *bool
+	id       string
+	name     string
+	data     T
+	children []*Node[T]
+	parent   *Node[T]
+	expanded bool
+	visible  bool
 }
 
 // NewNode creates a new node with the given id, name, and data
@@ -55,21 +54,16 @@ func (n *Node[T]) Children() []*Node[T] {
 }
 
 // HasGrandChildren returns true if any children have children
-func (n *Node[T]) HasGrandChildren() bool {
-	if n.hasGrandChildren != nil {
-		goto end
-	}
-	n.hasGrandChildren = new(bool)
+func (n *Node[T]) HasGrandChildren() (hasGKids bool) {
 	for _, child := range n.children {
 		if len(child.children) == 0 {
 			continue
 		}
-		*n.hasGrandChildren = true
+		hasGKids = true
 		goto end
 	}
-	*n.hasGrandChildren = false
 end:
-	return *n.hasGrandChildren
+	return hasGKids
 }
 
 // Parent returns the node's parent (nil for root nodes)
