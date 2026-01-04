@@ -28,29 +28,29 @@ type ChangeSet struct {
 	Committed  bool
 }
 
-// getChangeSetsPath returns the path to the changesets directory
-func (cs *ChangeSet) getChangeSetsPath(projectRoot dt.DirPath) dt.DirPath {
+// changeSetsPath returns the path to the changesets directory
+func (cs ChangeSet) changeSetsPath(projectRoot dt.DirPath) dt.DirPath {
 	return dt.DirPathJoin3(projectRoot, gitutils.InfoPath, ChangeSetsDir)
 }
 
 // getChangeSetPath returns the cached path to a specific changeset directory
-func (cs *ChangeSet) getChangeSetPath(projectRoot dt.DirPath) dt.DirPath {
+func (cs ChangeSet) changeSetPath(projectRoot dt.DirPath) dt.DirPath {
 	key := fmt.Sprintf("%s\t%s", projectRoot, cs.ID)
 	_, ok := changeSetPaths[key]
 	if !ok {
-		changeSetPaths[key] = dt.DirPathJoin(cs.getChangeSetsPath(projectRoot), cs.ID)
+		changeSetPaths[key] = dt.DirPathJoin(cs.changeSetsPath(projectRoot), cs.ID)
 	}
 	return changeSetPaths[key]
 }
 
 // CreateIndex creates a new Git index file for this ChangeSet
-func (cs *ChangeSet) CreateIndex(projectRoot dt.DirPath) (err error) {
+func (cs ChangeSet) CreateIndex(projectRoot dt.DirPath) (_ ChangeSet, err error) {
 	var changeSetDir dt.DirPath
 	var gitIndexPath dt.Filepath
 	var exists bool
 
 	// Get the changeset directory path
-	changeSetDir = cs.getChangeSetPath(projectRoot)
+	changeSetDir = cs.changeSetPath(projectRoot)
 
 	// Create the ChangeSet directory
 	err = changeSetDir.MkdirAll(0755)
@@ -83,15 +83,15 @@ end:
 	if err != nil {
 		err = WithErr(err, "changeset_id", cs.ID)
 	}
-	return err
+	return cs, err
 }
 
 // LoadIndex verifies this ChangeSet's index file exists and loads its path
-func (cs *ChangeSet) LoadIndex(projectRoot dt.DirPath) (err error) {
+func (cs ChangeSet) LoadIndex(projectRoot dt.DirPath) (_ ChangeSet, err error) {
 	var changeSetDir dt.DirPath
 	var exists bool
 
-	changeSetDir = cs.getChangeSetPath(projectRoot)
+	changeSetDir = cs.changeSetPath(projectRoot)
 	cs.IndexFile = dt.FilepathJoin(changeSetDir, IndexFilename)
 
 	exists, err = cs.IndexFile.Exists()
@@ -108,12 +108,12 @@ end:
 	if err != nil {
 		err = WithErr(err, "changeset_id", cs.ID)
 	}
-	return err
+	return cs, err
 }
 
 // StageHunk stages a specific hunk to this ChangeSet's index file
 // This uses GIT_INDEX_FILE environment variable to isolate the staging
-func (cs *ChangeSet) StageHunk(file dt.RelFilepath, hunk HunkHeader, repoRoot dt.DirPath) (err error) {
+func (cs ChangeSet) StageHunk(file dt.RelFilepath, hunk HunkHeader, repoRoot dt.DirPath) (_ ChangeSet, err error) {
 	var originalIndex string
 
 	// Set GIT_INDEX_FILE to the ChangeSet's index
@@ -149,20 +149,21 @@ end:
 			"file", file,
 		)
 	}
-	return err
+	return cs, err
 }
 
-// GetMetaPath returns the path to this ChangeSet's metadata file
-func (cs *ChangeSet) GetMetaPath(projectRoot dt.DirPath) dt.Filepath {
-	return dt.FilepathJoin(cs.getChangeSetPath(projectRoot), ChangeSetMetaFile)
+// MetaPath returns the path to this ChangeSet's metadata file
+func (cs ChangeSet) MetaPath(projectRoot dt.DirPath) dt.Filepath {
+	return dt.FilepathJoin(cs.changeSetPath(projectRoot), ChangeSetMetaFile)
 }
 
-// GetPatchPath returns the path to this ChangeSet's staged patch file (optional/informational)
-func (cs *ChangeSet) GetPatchPath(projectRoot dt.DirPath) dt.Filepath {
-	return dt.FilepathJoin(cs.getChangeSetPath(projectRoot), ChangeSetPatchFile)
+// PatchPath returns the path to this ChangeSet's staged patch file (optional/informational)
+func (cs ChangeSet) PatchPath(projectRoot dt.DirPath) dt.Filepath {
+	return dt.FilepathJoin(cs.changeSetPath(projectRoot), ChangeSetPatchFile)
 }
 
 // copyFile copies a file from src to dst
+// TODO: This functionality is in go-st (Domain Types) or if not, it should be.
 func copyFile(src, dst dt.Filepath) (err error) {
 	var data []byte
 	var info os.FileInfo

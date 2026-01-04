@@ -27,14 +27,14 @@ const (
 // FilesTableModel wraps bubble-table for displaying directory file lists with metadata.
 type FilesTableModel struct {
 	table  table.Model
-	dir    *Directory // Directory being displayed
+	dir    Directory // Directory being displayed
 	width  int
 	height int
 }
 
 // NewFilesTableModel creates a new files table model from a Directory.
 // The Directory contains Files with metadata and a summary.
-func NewFilesTableModel(dir *Directory, width, height int) FilesTableModel {
+func NewFilesTableModel(dir Directory, width, height int) FilesTableModel {
 	// Define table columns
 	columns := []table.Column{
 		table.NewColumn(colKeyRowNum, "#", 4),
@@ -152,7 +152,7 @@ func styledDispositionCell(disp FileDisposition) table.StyledCell {
 }
 
 // styledStatusCell returns a styled cell for git staging status with color.
-func styledStatusCell(metadata *FileMetadata) table.StyledCell {
+func styledStatusCell(metadata FileMeta) table.StyledCell {
 	if metadata == nil {
 		return table.NewStyledCell("---", lipgloss.NewStyle())
 	}
@@ -162,7 +162,7 @@ func styledStatusCell(metadata *FileMetadata) table.StyledCell {
 }
 
 // styledChangeCell returns a styled cell for change type with color.
-func styledChangeCell(metadata *FileMetadata) table.StyledCell {
+func styledChangeCell(metadata FileMeta) table.StyledCell {
 	if metadata == nil {
 		return table.NewStyledCell("---", lipgloss.NewStyle())
 	}
@@ -279,31 +279,6 @@ func (m *FilesTableModel) setDisposition(disp FileDisposition) {
 // View renders the table directly (no summary - table columns show all the info).
 func (m FilesTableModel) View() string {
 	return m.table.View()
-}
-
-// renderSummary renders the summary header with 4 summary statistics using renderRGBColor.
-func (m FilesTableModel) renderSummary() string {
-	s := m.dir.Summary
-
-	// Format: "Files: 10 | Size: 1.2 MiB | Staged: 5 | Unstaged: 3"
-	summaryText := fmt.Sprintf(
-		"Files: %d | Size: %s | Disposition: C:%d O:%d G:%d E:%d | Status: Staged:%d Unstaged:%d Untracked:%d | Changes: M:%d A:%d D:%d R:%d",
-		s.TotalFiles,
-		formatFileSize(s.TotalSize),
-		s.CommitCount,
-		s.OmitCount,
-		s.GitIgnoreCount,
-		s.GitExcludeCount,
-		s.StagedCount,
-		s.UnstagedCount,
-		s.UntrackedCount,
-		s.ModifiedCount,
-		s.AddedCount,
-		s.DeletedCount,
-		s.RenamedCount,
-	)
-
-	return renderRGBColor(summaryText, SilverColor)
 }
 
 // SetSize updates the model dimensions.

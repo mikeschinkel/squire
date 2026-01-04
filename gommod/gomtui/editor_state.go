@@ -267,8 +267,7 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 				}
 				es.FileContent = es.FileContent.SetContent(content, yOffset)
 			} else {
-				var summary DirSummary
-				var dir *Directory
+				var dir Directory
 				var layout FileDispositionLayout
 
 				// Directory selected - show directory table
@@ -292,14 +291,10 @@ func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) 
 					enrichWithGitStatus(file, es.GitStatusCache)
 				}
 
-				// Calculate summary
-				summary = calculateDirSummary(childFiles)
-
 				// Create directory object
-				dir = &Directory{
-					Path:    dt.RelDirPath(selectedFile.Path),
-					Files:   childFiles,
-					Summary: &summary,
+				dir = Directory{
+					Path:  dt.RelDirPath(selectedFile.Path),
+					Files: childFiles,
 				}
 
 				// Create/update table
@@ -614,8 +609,7 @@ func (es EditorState) loadFiles(ctx context.Context, files []File) (_ EditorStat
 	var selectedFile *File
 	var childFiles []*File
 	var gitStatusMap map[dt.RelFilepath]gitutils.GitFileStatus
-	var summary DirSummary
-	var dir *Directory
+	var dir Directory
 
 	// Create tree with loaded files
 	layout := es.Layout()
@@ -671,11 +665,9 @@ func (es EditorState) loadFiles(ctx context.Context, files []File) (_ EditorStat
 	for _, file := range childFiles {
 		enrichWithGitStatus(file, gitStatusMap)
 	}
-	summary = calculateDirSummary(childFiles)
-	dir = &Directory{
-		Path:    dt.RelDirPath(selectedFile.Path),
-		Files:   childFiles,
-		Summary: &summary,
+	dir = Directory{
+		Path:  dt.RelDirPath(selectedFile.Path),
+		Files: childFiles,
 	}
 	es.FilesTable = NewFilesTableModel(dir, layout.RightPaneInnerWidth(), layout.PaneHeight())
 
