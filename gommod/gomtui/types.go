@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/gomion/gommod/bubbletree"
 	"github.com/mikeschinkel/gomion/gommod/gitutils"
 )
 
@@ -39,6 +40,6 @@ type FileMeta struct {
 // Directory represents a directory containing changed files with summary statistics.
 // Follows the same pattern as File + FileMeta.
 type Directory struct {
-	Path  dt.RelDirPath // Directory path
-	Files []*File       // Child files
+	Path  dt.RelDirPath      // Directory path
+	Files []*bubbletree.File // Child files
 }

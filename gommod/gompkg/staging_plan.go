@@ -8,6 +8,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/mikeschinkel/gomion/gommod/gomion"
 )
 
@@ -175,7 +176,7 @@ func (store PlanStore) Delete(sp *StagingPlan) (err error) {
 	spId := sp.ID + ".json"
 	planFile = dt.FilepathJoin(dp, spId)
 	err = planFile.Remove()
-	if cfgstore.NoFileOrDirErr(err) {
+	if dtx.NoFileOrDirErr(err) {
 		err = nil
 	}
 	if err != nil {

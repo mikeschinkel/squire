@@ -106,8 +106,29 @@ func (t *Tree[T]) SetProvider(provider NodeProvider[T]) {
 }
 
 // FocusedNode returns the currently focused node (nil if none)
-func (t *Tree[T]) FocusedNode() *Node[T] {
-	return t.focusedNode
+func (t *Tree[T]) FocusedNode() (node *Node[T]) {
+	if t == nil {
+		return nil
+	}
+	node = t.focusedNode
+	if node == nil {
+		node = t.FirstNode()
+	}
+	if node != nil {
+		t.focusedNode = node
+	}
+	return node
+}
+
+// FirstNode returns the first node of the tree
+func (t *Tree[T]) FirstNode() *Node[T] {
+	if t == nil {
+		return nil
+	}
+	if len(t.nodes) == 0 {
+		return nil
+	}
+	return t.nodes[0]
 }
 
 // IsFocusedNode returns the currently focused node (nil if none)

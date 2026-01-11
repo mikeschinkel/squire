@@ -9,6 +9,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/mikeschinkel/gomion/gommod/gomion"
 )
 
@@ -255,7 +256,7 @@ func (store SnapshotStore) Delete() (err error) {
 	}
 	err = activeFile.Remove()
 	switch {
-	case cfgstore.NoFileOrDirErr(err):
+	case dtx.NoFileOrDirErr(err):
 		err = nil
 	case err != nil:
 		errs = append(errs, NewErr(dt.ErrFailedToRemoveFile, activeFile.ErrKV(), err))
@@ -267,7 +268,7 @@ func (store SnapshotStore) Delete() (err error) {
 	archiveFile = dt.FilepathJoin4(activeDir.Dir(), ArchivePath, activeDir.Base(), activeFile.Base())
 	err = archiveFile.Remove()
 	switch {
-	case cfgstore.NoFileOrDirErr(err):
+	case dtx.NoFileOrDirErr(err):
 		err = nil
 	case err != nil:
 		errs = append(errs, NewErr(dt.ErrFailedToRemoveFile, archiveFile.ErrKV(), err))

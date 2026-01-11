@@ -2,6 +2,7 @@ package gomion
 
 import (
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/gomion/gommod/gitutils"
 )
 
 var (
@@ -25,8 +26,9 @@ const (
 
 	// ConfigFile is the path for where the config file will be stored in the config
 	// directory, e.g. ~/.config/Gomion/cli.json
-	ConfigFile dt.RelFilepath = "config.json"
-
+	ConfigFile     dt.RelFilepath = "config.json"
+	GitInfoFile    dt.RelFilepath = "gomion.json"
+	CommitPlanFile dt.RelFilepath = "gomion/commit-plan.json"
 	// ExeName is just Gomion not Gomioncli or Gomion-cli as those are redundant, and
 	// Gomion should be the only CLI executable we put on a user's machine; everything
 	// else gets loaded or run by this one executable. Not that the other packages
@@ -49,4 +51,5 @@ var (
 	ExtraInfo = map[string]any{
 		"github_repo_url": GitHubRepoURL,
 	}
+	GitInfoFilepath dt.RelFilepath = dt.RelFilepathJoin(gitutils.InfoPath, GitInfoFile)
 )

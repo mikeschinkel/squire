@@ -6,15 +6,13 @@ import (
 
 // Renderer renders a tree to a string
 type Renderer[T any] struct {
-	tree  *Tree[T]
-	width int
+	tree *Tree[T]
 }
 
 // NewRenderer creates a new renderer for the given tree
-func NewRenderer[T any](tree *Tree[T], width int) *Renderer[T] {
+func NewRenderer[T any](tree *Tree[T]) *Renderer[T] {
 	return &Renderer[T]{
-		tree:  tree,
-		width: width,
+		tree: tree,
 	}
 }
 
@@ -50,7 +48,7 @@ func (r *Renderer[T]) renderNode(node *Node[T], lines *[]string) {
 		if isLastChild {
 			// Ancestor was last child - use empty space
 			sb.WriteString(emptySpace)
-			s := strings.Repeat(" ", len([]rune(branchStyle.MiddleChild+branchStyle.PreExpanderIndent)))
+			s := strings.Repeat(" ", len([]rune(branchStyle.MiddleChild+branchStyle.PreExpanderIndent))-1)
 			sb.WriteString(s)
 			continue
 		}
@@ -134,7 +132,7 @@ func (r *Renderer[T]) RenderToLines() []string {
 	return lines
 }
 
-// GetMaxLineWidth calculates the maximum width needed to display all visible nodes
+// GetMaxLineWidth calculates the maximum maxWidth needed to display all visible nodes
 // without truncation (ANSI codes stripped for accurate measurement)
 func (r *Renderer[T]) GetMaxLineWidth() int {
 	lines := r.RenderToLines()

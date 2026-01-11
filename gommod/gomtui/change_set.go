@@ -100,7 +100,7 @@ func (cs ChangeSet) LoadIndex(projectRoot dt.DirPath) (_ ChangeSet, err error) {
 		goto end
 	}
 	if !exists {
-		err = NewErr(ErrGitIndex, dt.ErrFileNotExists)
+		err = NewErr(ErrGitIndex, dt.ErrFileNotExist)
 		goto end
 	}
 

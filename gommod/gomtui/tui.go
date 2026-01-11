@@ -3,7 +3,7 @@ package gomtui
 import (
 	"context"
 	"log/slog"
-	"strings"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mikeschinkel/go-cliutil"
@@ -35,7 +35,6 @@ func New(writer cliutil.Writer, logger *slog.Logger) *TUI {
 func (t *TUI) Run(startDir dt.DirPath) (err error) {
 	var moduleDir dt.DirPath
 	var userRepo *gitutils.Repo
-	var ctx context.Context
 	var exists bool
 	var state EditorState
 	var program *tea.Program
@@ -62,7 +61,7 @@ func (t *TUI) Run(startDir dt.DirPath) (err error) {
 		goto end
 	}
 	if !exists {
-		err = NewErr(dt.ErrDirDoesNotExist, startDir.ErrKV())
+		err = NewErr(dt.ErrDirNotExist, startDir.ErrKV())
 		goto end
 	}
 
@@ -79,18 +78,18 @@ func (t *TUI) Run(startDir dt.DirPath) (err error) {
 		goto end
 	}
 
-	// Initialize EditorState
-	ctx = context.Background()
-	state = EditorState{
-		UserRepo:      userRepo,
-		ModuleDir:     moduleDir,
-		ModuleRelPath: calculateModuleRelPath(userRepo.Root, moduleDir),
-		ViewMode:      FileSelectionView, // Start in File Selection View
-		Writer:        t.Writer,
-	}
+	// Ensure that term.GetSize() is initialized before continuing. This is needed in
+	// Goland terminal for debugging, but is not harmful if not technically needed.
+	EnsureTermGetSize(os.Stdout.Fd())
 
-	// Initialize File Selection View
-	state, err = state.initFileSelectionView(ctx)
+	// Instantiate EditorState
+	state = NewEditorState(moduleDir, EditorStateArgs{
+		UserRepo: userRepo,
+		Writer:   t.Writer,
+	})
+
+	// Initialize EditorState
+	state, err = state.Initialize()
 	if err != nil {
 		err = NewErr(ErrGit, err)
 		goto end
@@ -179,7 +178,7 @@ end:
 
 // getChangedFiles returns list of changed files in working directory
 func (t *TUI) getChangedFiles(ctx context.Context, repo *gitutils.Repo) (files []dt.RelFilepath, err error) {
-	files, err = repo.GetChangedFiles(ctx)
+	files, err = repo.GetChangedFiles(ctx, nil)
 	if err != nil {
 		err = NewErr(ErrGit, err, "operation", "GetChangedFiles")
 	}
@@ -216,39 +215,4 @@ func (t *TUI) generateTakesViaAI(
 	}
 
 	return takes, err
-}
-
-// calculateModuleRelPath calculates the relative path from repo root to module directory
-func calculateModuleRelPath(repoRoot dt.DirPath, moduleDir dt.DirPath) dt.RelDirPath {
-	var relPath dt.RelDirPath
-	var err error
-
-	// If module dir equals repo root, use "."
-	if moduleDir == repoRoot {
-		return "."
-	}
-
-	// Calculate relative path from repo root to module
-	relPath, err = moduleDir.Rel(repoRoot)
-	if err != nil {
-		// Fallback: try string-based calculation
-		// This handles cases where dt.Rel might not work as expected
-		repoStr := string(repoRoot)
-		modStr := string(moduleDir)
-
-		// Ensure repo root ends with separator for clean trimming
-		if !strings.HasSuffix(repoStr, "/") {
-			repoStr += "/"
-		}
-
-		// If module starts with repo root, trim it
-		if strings.HasPrefix(modStr, repoStr) {
-			relPath = dt.RelDirPath(strings.TrimPrefix(modStr, repoStr))
-		} else {
-			// Ultimate fallback: use "."
-			relPath = "."
-		}
-	}
-
-	return relPath
 }

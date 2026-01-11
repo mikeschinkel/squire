@@ -1,6 +1,6 @@
-# Gomion **/ˈɡɒm.jən/** —
+# Gomion **/ˈɡɒm.jən/**
 
-> A Multi-purpose CLI _(a.k.a. a "Swiss Army Knife")_ CLI for Go developers that consolidates project tooling, multi-repo workflows, and one-off utilities into a single, cohesive command-line experience.
+> Multi-repo Go development tool that automates workflows, manages workspaces, and consolidates one-off utilities.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go)](https://go.dev/)
@@ -9,64 +9,83 @@
 
 ## What is Gomion?
 
-Gomion is a command-line tool designed to solve the daily friction points of Go development across multiple repositories and modules. It replaces repetitive `Makefiles`, manages the reality of multi-repo development where `go.work` alone isn't enough, and brings together scattered one-off tools into one discoverable place.
+Gomion is a CLI tool that solves daily friction in Go development across multiple repositories and modules. It replaces repetitive Makefiles, manages multi-repo workflows where `go.work` alone isn't enough, and consolidates scattered tools into one discoverable place.
 
-**Core Philosophy**: Only add commands that orchestrate multiple steps or automate workflows that would otherwise require a `Makefile` or shell scripts. Do not duplicate what `go` already does well.
+**Core Philosophy**: Orchestrate workflows that would otherwise require Makefiles or shell scripts. Don't duplicate what `go` already does well.
 
+## How to Pronounce
 
-## How to pronounce
+**GOM‑yun** — Short "o" (as in _pom_) + _yun_. Two syllables, first stressed.
 
-Gomion is pronounced **GOM‑yun**, with a short _“o”_ sound as in _pom_, followed by _yun._
-
-**Breakdown:**
-- **Gom** = like *pom* in *pom‑pom* (short “o”)
-- **‑ion** = *yun* (as in *onion* without the leading “uh”)
-- Always two (2) syllables, _first stressed_
-
-
-**How not to pronounce:**
-- Do not pronounce as _go‑MY‑on_ or _GO‑mee‑on_
-- Avoid hard _“eye‑on”_ endings
+**Not** _go‑MY‑on_ or _GO‑mee‑on_.
 
 ## Why Gomion?
 
-Over years of Go development, common pain points have emerged and I wanted a [minion](https://en.wikipedia.org/wiki/Minions_(Despicable_Me)) to help me when developing with Go:
+Multi-repo Go development has recurring pain points:
 
-- **Multi-repo chaos**: Working on several related modules means juggling both `go.work` and `replace` directives, which drift out of sync
-- **`Makefile` proliferation**: Every project has a similar `Makefile` with `test`, `lint`, `build`, `ci` targets
-- **Forgotten tools**: One-off utilities get written, then forgotten and accidentally recreated months later
-- **Workspace friction**: Constantly referencing paths when running commands across a set of related projects
+- **Multi-repo chaos**: `go.work` and `replace` directives drift out of sync
+- **Makefile proliferation**: Every project has similar `test`, `lint`, `build` targets
+- **Forgotten tools**: One-off utilities get lost and accidentally recreated
+- **Workspace friction**: Constantly referencing paths across related projects
 
-Gomion plans to address these by providing workspace-aware orchestration and consolidating tooling in one place.
+Gomion provides workspace-aware orchestration and tool consolidation.
 
 ## Current Status
 
-🚧 **Early Development** - Gomion is brand new in Dec 2025 and now under active initial development. The concept is established, but few features are implemented yet.
+🚧 **Early Development** (Dec 2025) — Core concepts established, initial features implemented.
+
+## Key Concepts
+
+### Workspaces
+
+Logical groupings of related Go modules. Define once, work without constant path references.
+
+### In-Flux State
+
+A module is "in-flux" (not ready for release) if ANY of:
+1. Dirty working tree (uncommitted/untracked changes)
+2. Commits not tagged
+3. Tags not pushed
+
+**Normal during development** — Most modules are in-flux. The workflow systematically releases them one-by-one.
+
+### Leaf Algorithm
+
+Find which in-flux module can be released next:
+- Among all in-flux modules, find one whose dependencies are all clean
+- Release bottom-up through the dependency tree
+- Repeat until nothing is in-flux
+
+### Release Automation Goal
+
+Automate the manual multi-repo release workflow:
+1. Find in-flux modules → 2. Find the leaf → 3. Prepare for release (tidy, vet, lint, test) → 4. Commit → 5. Tag and release → 6. Repeat
+
+## Design Principles
+
+1. **Orchestration Over Duplication** — Don't replace `go` commands; orchestrate them
+2. **One Source of Truth** — Discover from `go.mod`/`go.work`/git, don't duplicate
+3. **Minimal Configuration** — Store only what can't be discovered
+4. **Workspace Awareness** — Work on configured workspaces without constant paths
 
 ## Planned Features
 
-- **Workspace Management**: Define and work with logical groupings of Go modules
-- **Multi-Repo Orchestration**: Test, lint, and build across module dependency trees
-- **Dev Mode Toggling**: Switch between local development (with `replace` directives) and release mode
-- **Embedded Dependencies**: Manage single-file utilities that are copied into projects rather than imported
-- **GitHub Workflow Integration**: Ensure repos have proper test and release workflows
-- **GoReleaser Integration**: Scaffold and manage binary release configurations
-- **Interactive TUI**: For complex operations like workspace discovery and configuration
-- **ClearPath Linting**: Custom linter for opinionated Go coding style
+- Workspace management and discovery (with TUI)
+- Multi-repo testing, linting, building across dependency trees
+- Dev mode toggling (`go.work` + `replace` directive management)
+- Interactive commit workflow with AI-generated messages
+- GitHub workflow integration and release automation
+- GoReleaser integration for binary releases
+- API stability management across modules
+- ClearPath custom linter
 
-See [FEATURES.md](FEATURES.md) for comprehensive details about planned features, requirements, and design decisions.
-
-## Documentation
-
-- **[FEATURES.md](FEATURES.md)** - Detailed requirements, background, and design decisions (for contributors and future reference)
-- **[CLAUDE.md](CLAUDE.md)** - Architectural guide for AI-assisted development with Claude Code
-- **[LICENSE](LICENSE)** - Apache License 2.0
+See [ROADMAP.md](ROADMAP.md) for details.
 
 ## Installation
 
 _Installation instructions will be added once initial release is available._
 
-For now, to build from source:
+For now, build from source:
 
 ```bash
 git clone https://github.com/mikeschinkel/gomion.git
@@ -74,50 +93,45 @@ cd gomion
 go install ./cmd/...
 ```
 
-## Quick Start
-
-_Quick start guide will be added as features are implemented._
-
 ## Project Structure
 
-This project uses Go workspaces with three modules:
+Go workspace with three modules:
 
-- **`cmd/`** - CLI entry point
-- **`gommod/`** - Core library (Gomion Go module, importable by other tools)
-- **`test/`** - Test module
+- **`cmd/`** — CLI entry point
+- **`gommod/`** — Core library (importable by other tools)
+- **`test/`** — Test module (avoids circular dependencies)
+
+## Documentation
+
+- **[ROADMAP.md](ROADMAP.md)** — Planned features and status
+- **[CLAUDE.md](CLAUDE.md)** — Architectural guide for AI-assisted development
+- **[DONE.md](DONE.md)** — Recently completed work
+- **[PERFORMANCE.md](PERFORMANCE.md)** — BubbleTea performance patterns
+- **[LICENSE](LICENSE)** — Apache License 2.0
 
 ## Contributing
 
-Gomion is designed to be open source and welcomes contributions! However, it's still in early development.
+Gomion welcomes contributions but is still in early development.
 
 **Before contributing**:
-- Read [FEATURES.md](FEATURES.md) to understand the vision and design philosophy
-- Read [CLAUDE.md](CLAUDE.md) for architectural patterns and conventions
-- Open an issue to discuss significant changes before implementing
-
-## Design Principles
-
-1. **One Source of Truth**: Don't duplicate information that can be discovered from `go.mod`, `go.work`, or other canonical sources
-2. **Minimal Configuration**: Store only what cannot be discovered automatically
-3. **Workspace Awareness**: Operations should work on configured workspaces without constant path references
-4. **Orchestration Over Duplication**: Don't replace `go` commands; orchestrate them for complex workflows
+- Read [ROADMAP.md](ROADMAP.md) to understand vision and design
+- Read [CLAUDE.md](CLAUDE.md) for architectural patterns
+- Open an issue to discuss significant changes
 
 ## License
 
-This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details.
+Apache License, Version 2.0 — See [LICENSE](LICENSE) for details.
 
 ## Author
 
-**Mike Schinkel**
-- GitHub: [@mikeschinkel](https://github.com/mikeschinkel)
+**Mike Schinkel** — [@mikeschinkel](https://github.com/mikeschinkel)
 
-## Acknowledgments
+## Built With
 
-Built with:
-- [go-cliutil](https://github.com/mikeschinkel/go-cliutil) - Command framework
-- [go-cfgstore](https://github.com/mikeschinkel/go-cfgstore) - Configuration management
-- [go-dt](https://github.com/mikeschinkel/go-dt) - Type-safe data types
+- [go-cliutil](https://github.com/mikeschinkel/go-cliutil) — Command framework
+- [go-cfgstore](https://github.com/mikeschinkel/go-cfgstore) — Configuration management
+- [go-dt](https://github.com/mikeschinkel/go-dt) — Type-safe data types
 
 ---
 
-**Note**: This is an opinionated tool that prioritizes the author's workflows and preferences, but is designed to be useful to others who share similar pain points in Go development.
+**Note**: Opinionated tool prioritizing the author's workflows, but designed to be useful to others with similar multi-repo pain points.

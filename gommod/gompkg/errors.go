@@ -43,3 +43,15 @@ var ErrNotImplemented = errors.New("not implemented")
 
 //goland:noinspection GoErrorStringFormat
 var ErrGoModuleNotFound = errors.New("Go module not found")
+
+// Commit plan errors
+var (
+	// ErrInvalidCommitPlan indicates the commit plan data is invalid
+	ErrInvalidCommitPlan = errors.New("invalid commit plan")
+
+	// ErrFailedToSaveCommitPlan indicates failure to save commit plan
+	ErrFailedToSaveCommitPlan = errors.New("failed to save commit plan")
+
+	// ErrFailedToLoadCommitPlan indicates failure to load commit plan
+	ErrFailedToLoadCommitPlan = errors.New("failed to load commit plan")
+)
