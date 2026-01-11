@@ -9,6 +9,7 @@ import (
 
 	"github.com/mikeschinkel/go-cfgstore"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
 	"github.com/mikeschinkel/gomion/gommod/gomion"
 )
 
@@ -106,7 +107,7 @@ func (store CandidateStore) Save(cc *CommitCandidate) (err error) {
 		ccId := cc.ID + ".json"
 		activeFile = dt.FilepathJoin(dp, ccId)
 		err = activeFile.Remove()
-		if cfgstore.NoFileOrDirErr(err) {
+		if dtx.NoFileOrDirErr(err) {
 			err = nil
 		}
 	}
@@ -229,7 +230,7 @@ func (store CandidateStore) Delete() (err error) {
 		goto end
 	}
 	err = activeFile.Remove()
-	if cfgstore.NoFileOrDirErr(err) {
+	if dtx.NoFileOrDirErr(err) {
 		err = nil
 	}
 	if err != nil {
@@ -239,7 +240,7 @@ func (store CandidateStore) Delete() (err error) {
 	// Try to remove from archive location
 	archiveFile = dt.FilepathJoin4(activeDir.Dir(), ArchivePath, activeDir.Base(), store.CandidateId)
 	err = archiveFile.Remove()
-	if cfgstore.NoFileOrDirErr(err) {
+	if dtx.NoFileOrDirErr(err) {
 		err = nil
 	}
 	if err != nil {

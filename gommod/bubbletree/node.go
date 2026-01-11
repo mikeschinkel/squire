@@ -55,6 +55,9 @@ func (n *Node[T]) Children() []*Node[T] {
 
 // HasGrandChildren returns true if any children have children
 func (n *Node[T]) HasGrandChildren() (hasGKids bool) {
+	if n == nil {
+		return false
+	}
 	for _, child := range n.children {
 		if len(child.children) == 0 {
 			continue

@@ -77,6 +77,7 @@ func (r *Repo) RevParse(ref string) (string, error) {
 type StatusArgs struct {
 	Path          dt.PathSegments // Optional path to check status for
 	HumanReadable bool            // If true, return human-readable format; if false, use --porcelain
+	FileFilter    FileFilter
 }
 
 // Status returns git status output (package-level function)
@@ -125,6 +126,41 @@ func (r *Repo) StatusMap(ctx context.Context, args *StatusArgs) (m StatusMap, er
 
 end:
 	return m, err
+}
+
+// GetChangedFiles returns all changed files in the working directory
+// This includes both staged and unstaged changes
+func (r *Repo) GetChangedFiles(ctx context.Context, args *StatusArgs) (files []dt.RelFilepath, err error) {
+	var output string
+	var filtered []dt.RelFilepath
+
+	output, err = r.Status(ctx, args)
+	if err != nil {
+		goto end
+	}
+
+	files, err = ParseStatusFiles(output)
+	if err != nil {
+		goto end
+	}
+
+	// Apply filter if provided
+	if args.FileFilter == nil {
+		goto end
+	}
+	filtered = make([]dt.RelFilepath, 0, len(files))
+	for _, file := range files {
+		if args.FileFilter == nil {
+			filtered = append(filtered, file)
+			continue
+		}
+		if args.FileFilter(file) {
+			filtered = append(filtered, file)
+		}
+	}
+	files = filtered
+end:
+	return files, err
 }
 
 func (r *Repo) IsDirty() (bool, error) {

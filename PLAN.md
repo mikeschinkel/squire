@@ -4,19 +4,19 @@
 
 **BEFORE starting ANY work on this project:**
 
-1. **Read this entire PLAN.md file** - This shows what's LEFT to do, not what's already done
+1. **Read this entire file** - This shows what's LEFT to do, not what's already done
 2. **Be aware of DONE.md** - This shows what's already completed (don't re-implement!) Only read if you need to.
 3. **Review ALL configured skills** - Ensure you're familiar with go-house-rules, error-handling-author, go-dt-filepath-refactorer, etc.
-4. **Only work on what's in PLAN.md** - Don't waste tokens reviewing/implementing completed work
+4. **Only work on what's in this file** - Don't waste tokens reviewing/implementing completed work
 5. **When you complete a task:**
-   - MOVE the implementation details from PLAN.md to DONE.md
-   - DELETE the completed content from PLAN.md
+   - MOVE the implementation details from this file to DONE.md
+   - DELETE the completed content from this file.
    - Goal: Whittle PLAN.md down to nothing as work progresses
 
 **Why this matters:**
-- PLAN.md = What needs to be done (gets smaller)
+- This file = What needs to be done (gets smaller)
 - DONE.md = What was completed (gets larger)
-- Don't rely on conversation summaries - always check PLAN.md first
+- Don't rely on conversation summaries - always check this file first
 - This prevents wasting tokens on already-completed work
 
 ---
@@ -78,123 +78,224 @@ Get all files → Generate takes → Select files
 - Uses same data structures
 - Just ignore this ChangeSet when generating takes
 
-**File Dispositions**:
-- `INCLUDE` - Will be committed (generate takes for these)
-- `DO-NOT-INCLUDE` - Special ChangeSet, skip for now
-- `GITIGNORE` - Add to .gitignore
-- `GITEXCLUDE` - Add to .git/info/exclude
+**File Dispositions** (Terminology Update):
+- `COMMIT` (formerly INCLUDE) - Will be committed (generate takes for these)
+- `OMIT` (formerly DO-NOT-INCLUDE) - Skip for now, will appear next session
+- `IGNORE` (formerly GITIGNORE) - Add to `.gitignore` (project-level, deferred)
+- `EXCLUDE` (formerly GITEXCLUDE) - Add to `.git/info/exclude` (personal, immediate)
 
 ---
 
-## IMMEDIATE PRIORITY: Phase 2.5 - File Selection View
+## Phase 2.1: Files Table Improvements
 
-**Goal:** Module-scoped file filtering with disposition assignment BEFORE generating takes
+**Goal**: Fix table layout, sizing, scrolling, and visual selection
 
-**Why this comes first:**
-- Addresses workflow flaw (wrong scope, no filtering, missing human-in-the-loop)
-- Developer decides what NOT to include before AI generates takes
-- Module-scoped by default with toggle to full-repo
+**Priority**: High (before exclude/ignore work)
 
-### Step 1: Implement gitutils Filter Support
+### Issues to Address
 
-Add to `gitutils/working.go`:
+1. **Dynamic filename column width**
+   - Currently: Fixed 40 columns, flush left
+   - Needed: Auto-size to longest filename + 2 chars padding (1 left, 1 right)
 
-```go
-// FileFilter is a function that returns true if file should be included
-type FileFilter func(dt.RelFilepath) bool
+2. **Table auto-sizing to fill screen**
+   - Currently: Table doesn't resize to viewport
+   - Needed: Table fills available space like file content viewport
+   - **Critical**: Ensures alerts always appear in same location (top right corner)
 
-// GetChangedFilesFiltered returns changed files matching filter
-func (r *Repo) GetChangedFilesFiltered(
-    ctx context.Context,
-    filter FileFilter,
-) (files []dt.RelFilepath, err error)
+3. **Horizontal scrolling**
+   - Currently: Table clips if too wide for screen
+   - Needed: Left-right scrolling for long paths/many columns
+   - **Keybinding**: TBD (arrow keys when in table? Shift+arrow?)
+
+4. **Selection indicator without obscuring cell colors**
+   - Currently: Row-wide selection background obscures disposition colors
+   - Needed: Clear selection that preserves Plan/Change column colors
+
+5. **Remove staging status, keep change status**
+   - Currently: Shows "Status" column (staging status)
+   - Needed: Remove staging status (irrelevant - Gomion manages staging)
+   - **Keep**: "Change" column (M/A/D/U - git change type)
+
+### Column Order (Updated)
+
+**Current**: `# Plan Filename Status Change Size Modified Perms Mode Flags`
+
+**New**: `# Plan Filename Change Size Modified Perms Mode Flags`
+
+- Removed: "Status" (staging status - not relevant)
+- Kept: "Change" (M/A/D/U - important context)
+
+### Selection Visual Design
+
+**Approach**: Use `▶` character for visual consistency with tree view
+
+**Components**:
+1. **Triangle indicator** (`▶`) in leftmost position before row number
+2. **Bold text** for entire selected row
+3. **Reverse video** on row number column
+
+**Example**:
 ```
-
-**Deliverable:**
-- [ ] FileFilter type defined in gitutils
-- [ ] GetChangedFilesFiltered method implemented
-
-### Step 2: Implement Module-Scoped Filtering
-
-Add to `gompkg`:
-
-```go
-// CreateModuleFileFilter returns a filter for files within module directory
-func CreateModuleFileFilter(moduleDir dt.DirPath) gitutils.FileFilter {
-    return func(file dt.RelFilepath) bool {
-        // Return true if file is within moduleDir
-    }
-}
-
-// AutoDetectModule finds go.mod and returns module directory
-func AutoDetectModule(startDir dt.DirPath) (moduleDir dt.DirPath, err error)
+Selected:   ▶ [3] COMMIT main.go      M  1.2KB  2026-01-07 10:23  ...
+Unselected:   [4] OMIT   test.go     A  0.5KB  2026-01-07 09:15  ...
 ```
+(where [3] is reverse video, and the selected row is bold)
 
-**Deliverable:**
-- [ ] CreateModuleFileFilter function implemented
-- [ ] AutoDetectModule function implemented
-- [ ] Module detection tested with real go.mod files
+**Rationale**:
+- **Visual consistency**: `▶` is already used in tree view for expansion/selection
+- **Familiar**: Users already associate `▶` with "current/active" from tree navigation
+- **No extra lines**: Single character indicator, clean and simple
+- **Cell colors preserved**: Plan and Change columns show their semantic colors
 
-### Step 3: Update File Disposition Types
+### Implementation Tasks
 
-Add to `gomtui/types.go`:
+**Phase 2.1a: Column Changes** ✅ COMPLETED
+- [x] Remove "Status" column from table model
+- [x] Reorder columns: `# Plan Filename Change Size Modified Perms Mode Flags`
+- [x] Update column headers
+- [x] Update row rendering logic
 
-```go
-type FileDisposition int
-const (
-    Include FileDisposition = iota
-    DoNotInclude  // Special ChangeSet - skip for takes
-    GitIgnore     // Add to .gitignore
-    GitExclude    // Add to .git/info/exclude
-)
+**Phase 2.1b: Dynamic Filename Column** ✅ COMPLETED
+- [x] Calculate longest filename in current file list
+- [x] Set filename column width = max(len(longest_filename) + 2, min_width)
+- [x] Update on file list changes (handled in SetSize)
+- [x] Add 1 char padding left, 1 char padding right
 
-type FileWithDisposition struct {
-    Path        dt.RelFilepath
-    Disposition FileDisposition
-    Content     string  // For display in right pane
-    // ... other fields
-}
-```
+**Phase 2.1c: Table Auto-Sizing** ✅ COMPLETED
+- [x] Make table component respect viewport bounds (already implemented with WithTargetWidth/WithMinimumHeight)
+- [x] Calculate available height (handled by caller)
+- [x] Resize table to fill available space
+- [x] Update on terminal resize events (SetSize method)
+- [x] Ensure alerts stay in top-right corner (table sizing handles this)
+- [x] Fix width calculations to reach right edge of screen (RightPaneInnerWidth adjusted from -10 to -6)
 
-**Deliverable:**
-- [ ] FileDisposition type and constants defined
-- [ ] FileWithDisposition struct created
+**Phase 2.1d: Horizontal Scrolling** ✅ COMPLETED
+- [x] Detect when table width exceeds viewport width (handled by bubble-table)
+- [x] Implement horizontal scroll offset (handled by bubble-table with WithMaxTotalWidth)
+- [x] Add keybindings for left-right scroll (left/right arrows with custom keymap)
+- [x] Freeze first column (#) when scrolling (WithHorizontalFreezeColumnCount)
+- [x] Implement cell-level cursor tracking (currentColumn field)
+- [x] Left/right arrows move cell cursor, not just scroll table
+- [ ] Show scroll indicators (e.g., "«" and "»" when scrolled) - Deferred (bubble-table provides "<" and ">" indicators)
+- [ ] Auto-scroll when cell cursor navigates off-screen - Deferred (cell stays on-screen for now)
+- [ ] Smooth scrolling behavior - Deferred (bubble-table may handle)
 
-### Step 4: Build File Selection View UI
+**Phase 2.1e: Selection Visual Indicator** ✅ COMPLETED
+- [x] Add triangle indicator column (1 char wide: `▶`)
+- [x] Render `▶` for selected row, space for others
+- [x] Adjust # column width: left-pad single digits, no padding for double digits
+  - Single digit: `│ ▶ 1 │` (space before digit)
+  - Double digit: `│ ▶10 │` (no space before digits)
+- [x] Update indicator when selection changes (on navigation)
+- [x] Preserve cell background colors (Plan column, Change column)
+- [x] Apply bold text style to entire selected row (with brighter colors)
+- [x] Apply reverse video to current cell (cell-level highlighting)
+- [x] Implement cell-level selection tracking (currentColumn field in FilesTableModel)
+- [x] Left/right arrows move cell cursor within selected row
 
-Create `gomtui/file_selection_view.go`:
+**Implementation Notes**:
+- Row-level styling: Bold + brighter colors for entire selected row
+- Cell-level styling: Reverse video applied to current cell only
+- Two-level highlighting: Selected row (bold+bright) + current cell (reverse video)
+- Cell cursor movement handled independently from bubble-table's row selection
 
-**Layout**: Two/three-pane
-- Left: Tree view (BubbleTree)
-- Right: File content display
-- Top/indicator: File disposition (INCLUDE/DO-NOT-INCLUDE/GITIGNORE/GITEXCLUDE)
+---
 
-**Features**:
-- Module-scoped file list (default) with toggle to full-repo
-- Auto-detect module from go.mod location
-- Filter changed files to module
-- Mark files with dispositions
-- Persist to `.git/info/commit-files.json` (later - in-memory for now)
-- Can switch back to this view anytime
+## Exclude/Ignore Workflow Implementation
 
-**Integration**:
-- Implement BubbleTree
-- Two-pane layout with BubbleTea
-- File content display
-- Disposition toggling with keyboard shortcuts
-- Module/repo toggle
+### Git Behavior Facts
 
-**Deliverables:**
-- [ ] Auto-detects module from go.mod
-- [ ] Shows changed files scoped to module (default)
-- [ ] Can toggle to show full repo files
-- [ ] Tree view displays file hierarchy
-- [ ] Right pane shows selected file content
-- [ ] Can mark files as INCLUDE/DO-NOT-INCLUDE/GITIGNORE/GITEXCLUDE
-- [ ] DO-NOT-INCLUDE treated as special ChangeSet
-- [ ] Can navigate with keyboard
-- [ ] Can proceed to Takes View (only INCLUDE files)
-- [ ] Can return to File Selection View later
+**Both `.gitignore` and `.git/info/exclude` take effect immediately** (even uncommitted):
+- **`.gitignore`**: Project-level, committed, shared with team
+- **`.git/info/exclude`**: Personal, never committed, only affects you
+- **Global config**: Personal, affects all repos, **out of scope for modification**
+
+### Phase 2.5: Core Exclude/Ignore Functionality
+
+**Goal**: Implement basic exclude/ignore with proper timing and visibility
+
+**Tasks**:
+- [ ] Update file disposition enum: COMMIT, OMIT, IGNORE, EXCLUDE
+- [ ] Implement `.git/info/exclude` writer in gitutils
+  - Append pattern (don't duplicate if already exists)
+  - Atomic write with temp file
+  - Error handling for permission issues
+- [ ] Implement `.gitignore` modifier in gitutils
+  - Append pattern to `.gitignore`
+  - Create `.gitignore` if doesn't exist
+  - Atomic write with temp file
+- [ ] Apply EXCLUDE immediately when disposition set
+- [ ] Apply IGNORE immediately (modify `.gitignore` file)
+- [ ] Ensure excluded files stay visible during session
+- [ ] Update commit plan persistence to handle new dispositions
+- [ ] Test manual "undo" (change disposition back to COMMIT/OMIT)
+
+**Application Workflow**:
+- **EXCLUDE**: Write to `.git/info/exclude` immediately, keep visible
+- **IGNORE**: Modify `.gitignore`, treat as uncommitted change, commit with code
+- **OMIT**: Don't apply anything, file stays in working tree
+
+### Phase 2.6: Show Excluded/Ignored Files
+
+**Goal**: Display files affected by ignore/exclude rules
+
+**Tasks**:
+- [ ] Implement `git ls-files --others --ignored --exclude-standard -z` in gitutils
+- [ ] Implement `git check-ignore -v -z --stdin` batch checker in gitutils
+- [ ] Parse check-ignore output (source file, line, pattern)
+- [ ] Add toggle keybinding for "show excluded/ignored" (e.g., `Ctrl-e`)
+- [ ] Add indicator when excluded/ignored files exist (status line or header)
+- [ ] Display excluded/ignored files in file list with disposition markers
+- [ ] Allow un-exclude operation (remove from `.git/info/exclude`)
+- [ ] Allow un-ignore operation (remove from `.gitignore`)
+- [ ] Detect global ignore matches, show info message
+
+**Reference**: See ChatGPT algorithm in conversation history for performant implementation
+
+### Phase 2.7: File Info Popup/Overlay
+
+**Goal**: Simple overlay showing file-specific metadata and context
+
+**Motivation**: UI has limited space for verbose metadata. Popup provides details on demand.
+
+**Tasks**:
+- [ ] Create file info popup component (1/2 to 2/3 viewport, centered)
+- [ ] Add hotkey to show popup (e.g., `i` for "info")
+- [ ] ESC to clear/close popup
+- [ ] Display in popup:
+  - File path (full and relative)
+  - Git status (modified, staged, untracked)
+  - Ignore/exclude attribution (if applicable):
+    - `excluded: .git/info/exclude:12 "*.log"`
+    - `ignored: .gitignore:8 "dist/"`
+    - `ignored: global:3 ".DS_Store"` (with note: must edit manually)
+  - File metadata (size, modified time, permissions)
+  - Current disposition (COMMIT/OMIT/IGNORE/EXCLUDE)
+- [ ] Style with lipgloss (border, padding, title)
+- [ ] Test with various file states
+- [ ] Handle case where file has no special metadata (just show basics)
+
+**Future Enhancement**: See ROADMAP.md "Enhanced File Viewer" for full-featured version
+
+### Phase 2.8: General Undo/Redo
+
+**Goal**: Session-level undo for all disposition changes
+
+**Note**: Not on critical path for exclude/ignore. Manual "undo" works via disposition change.
+
+**Tasks**:
+- [ ] Define `Operation` interface (Do/Undo/Description)
+- [ ] Implement `UndoStack` struct
+- [ ] Implement `DispositionChangeOp` with Do/Undo
+- [ ] Add undo keybinding (`Ctrl-z`)
+- [ ] Add redo keybinding (`Shift-Ctrl-z`)
+- [ ] Add visual feedback (toast/status message)
+- [ ] Clear stack on TUI exit
+- [ ] Clear stack after successful commit
+- [ ] Test undo/redo across all disposition types
+
+**Scope**: Session-level only (not cross-session)
 
 ---
 
@@ -202,7 +303,7 @@ Create `gomtui/file_selection_view.go`:
 
 **Goal:** Two-pane UI for browsing Takes and ChangeSets
 
-**Status**: Pending Phase 2.5 completion
+**Status**: Ready to implement (Phase 2.5 complete)
 
 **Tasks:**
 1. Create `model.go` with bubbletea Init()
