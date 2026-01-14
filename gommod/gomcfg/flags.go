@@ -41,8 +41,8 @@ func (flgs *Flags) Parse(args []string) (err error) {
 	fs := flag.NewFlagSet(string(gomion.ExeName), flag.ContinueOnError)
 	fs.SetOutput(&buf)
 
-	fs.StringVar(&flgs.InputPath, "input", "", "Path to input JSON file (required)")
-	fs.StringVar(&flgs.OutputPath, "output", "", "Path to output JSON file (required)")
+	fs.StringVar(&flgs.InputPath, "input", "", "RelPath to input JSON file (required)")
+	fs.StringVar(&flgs.OutputPath, "output", "", "RelPath to output JSON file (required)")
 	// fs.StringVar(&flgs.ModuleDir, "module-dir", "", "Optional module directory override") // disabled: module dir is positional
 
 	err = fs.Parse(args)

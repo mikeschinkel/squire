@@ -2,6 +2,7 @@ package gomtui
 
 import (
 	"github.com/mikeschinkel/gomion/gommod/gitutils"
+	"github.com/mikeschinkel/gomion/gommod/gompkg"
 )
 
 // ChangeTypeRGBColor returns the RGBColor for a given ChangeType.
@@ -71,6 +72,24 @@ func renderStaging(s gitutils.Staging) string {
 }
 
 // renderDisposition renders a FileDisposition with its associated color.
-func renderDisposition(disp FileDisposition) string {
-	return renderEnumValue(disp.Key(), disp.RGBColor())
+func renderDisposition(disp gompkg.FileDisposition) string {
+	return renderEnumValue(disp.Key(), DispositionColor(disp))
+}
+
+// DispositionColor returns the lipgloss color for the disposition as an RGBColor value
+func DispositionColor(d gompkg.FileDisposition) RGBColor {
+	switch d {
+	case gompkg.CommitDisposition:
+		return GreenColor // Green
+	case gompkg.OmitDisposition:
+		return GrayColor // Gray
+	case gompkg.GitIgnoreDisposition:
+		return RedColor // Red
+	case gompkg.GitExcludeDisposition:
+		return YellowColor // Yellow
+	case gompkg.UnspecifiedDisposition:
+		fallthrough
+	default:
+		return WhiteColor // White
+	}
 }

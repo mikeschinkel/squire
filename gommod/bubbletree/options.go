@@ -76,7 +76,7 @@ func CompactBranchStyle(ec ExpanderControls) (bs BranchStyle) {
 	bs.Horizontal = "─"       // Horizonal line + space for next level
 	bs.MiddleChild = "├─"     // Branch + space before filename
 	bs.LastChild = "└─"       // Last branch + space before filename
-	bs.EmptySpace = "  "      // Two spaces to match vertical line width
+	bs.EmptySpace = "  "      // Two spaces to match vertical line maxWidth
 	bs.PreExpanderIndent = "" // No spaces before expander
 	return bs
 }

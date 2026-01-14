@@ -159,7 +159,7 @@ end:
 //				err = WithErr(err, dt.ErrFileSystem)
 //				goto end
 //			}
-//			err = NewErr(dt.ErrDirDoesNotExist, dt.ErrDoesNotExist, "path", gitDir, err)
+//			err = NewErr(dt.ErrDirNotExistExist, dt.ErrDoesNotExist, "path", gitDir, err)
 //			goto end
 //		}
 //

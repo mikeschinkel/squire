@@ -1,6 +1,8 @@
 package gomtui
 
 import (
+	"log/slog"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -11,15 +13,17 @@ type FileContentModel struct {
 	content  string
 	width    int
 	height   int
+	Logger   *slog.Logger
 }
 
 // NewFileContentModel creates a new file content model
-func NewFileContentModel(width, height int) FileContentModel {
+func NewFileContentModel(width, height int, lgr *slog.Logger) FileContentModel {
 	vp := viewport.New(width, height)
 	return FileContentModel{
 		viewport: vp,
 		width:    width,
 		height:   height,
+		Logger:   lgr,
 	}
 }
 

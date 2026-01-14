@@ -4,14 +4,14 @@ package gomtui
 type ViewMode int
 
 const (
-	FileSelectionView ViewMode = iota
+	FileDispositionsView ViewMode = iota
 	TakesView
 	FilesView
 )
 
 func (v ViewMode) String() string {
 	switch v {
-	case FileSelectionView:
+	case FileDispositionsView:
 		return "File Selection"
 	case TakesView:
 		return "Takes"

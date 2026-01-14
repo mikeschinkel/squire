@@ -1,58 +1,58 @@
 package gomtui
 
 import (
-	"path/filepath"
-	"sort"
-	"strings"
+	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/gomion/gommod/bubbletree"
+	"github.com/mikeschinkel/gomion/gommod/gompkg"
 )
 
 // FileDispositionTreeModel wraps bubbletree.Model for hierarchical file display
 type FileDispositionTreeModel struct {
-	model bubbletree.Model[File]
+	Logger *slog.Logger
+	model  bubbletree.Model[bubbletree.File]
+}
+type FileDispositionTreeModelArgs struct {
+	FileSource      *FileSource
+	Height          int
+	DispositionFunc func(dt.RelFilepath) gompkg.FileDisposition
+	Logger          *slog.Logger
 }
 
 // NewFileDispositionTreeModel creates a new folder tree model from a flat list of files
-func NewFileDispositionTreeModel(files []File, width, height int) FileDispositionTreeModel {
-	// Build tree hierarchy
-	rootNodes := buildFileDispositionTreeHierarchy(files)
+func NewFileDispositionTreeModel(args FileDispositionTreeModelArgs) (m FileDispositionTreeModel) {
 
-	// Create tree with custom provider
-	tree := bubbletree.NewTree[File](rootNodes, &bubbletree.TreeArgs[File]{
-		NodeProvider: NewFileDispositionNodeProvider(),
-	})
+	tree := NewFileDispositionTree(args.FileSource, args.DispositionFunc)
 
 	// Create BubbleTea model
-	model := bubbletree.NewModel(tree, width, height)
+	m.model = bubbletree.NewModel(tree.tree, args.Height)
+	m.Logger = args.Logger
 
-	return FileDispositionTreeModel{
-		model: model,
-	}
+	return m
 }
 
 // NewEmptyFileDispositionTreeModel creates an empty tree with a message
-func NewEmptyFileDispositionTreeModel(message string, width, height int) FileDispositionTreeModel {
+func NewEmptyFileDispositionTreeModel(message string, height int, dispositionFn func(dt.RelFilepath) gompkg.FileDisposition) FileDispositionTreeModel {
 	// Create a single node with the message
-	nodes := []*FileDispositionNode{
-		bubbletree.NewNode("empty", message, File{
-			Path:        dt.RelFilepath(""),
-			Disposition: UnspecifiedDisposition,
-			Content:     "",
+	nodes := []*bubbletree.FileNode{
+		bubbletree.NewNode("empty", message, bubbletree.File{
+			Path: dt.RelFilepath(""),
 		}),
 	}
 
-	tree := bubbletree.NewTree[File](nodes, &bubbletree.TreeArgs[File]{
-		NodeProvider: NewFileDispositionNodeProvider(),
+	tree := bubbletree.NewTree[bubbletree.File](nodes, &bubbletree.TreeArgs[bubbletree.File]{
+		NodeProvider: NewFileDispositionNodeProvider(dispositionFn),
 	})
 
-	model := bubbletree.NewModel(tree, width, height)
-
 	return FileDispositionTreeModel{
-		model: model,
+		model: bubbletree.NewModel(tree, height),
 	}
+}
+
+func (m FileDispositionTreeModel) HasTree() bool {
+	return m.model.Tree() != nil
 }
 
 // Init initializes the model
@@ -61,9 +61,18 @@ func (m FileDispositionTreeModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the model
-func (m FileDispositionTreeModel) Update(msg tea.Msg) (FileDispositionTreeModel, tea.Cmd) {
-	updatedModel, cmd := m.model.Update(msg)
-	m.model = updatedModel
+func (m FileDispositionTreeModel) Update(msg tea.Msg) (_ FileDispositionTreeModel, cmd tea.Cmd) {
+	// Handle refreshTableMsg to trigger tree re-render (for disposition changes)
+	m.Logger.Info("FileDispositionTreeModel.Update()", teaMsgAttrs(msg))
+	switch msg := msg.(type) {
+	case refreshTableMsg:
+		// Tree nodes get their styling from the node provider which queries dispositions
+		// Just re-rendering will pick up the new disposition colors
+		// Force a refresh by calling the model's update with nil to trigger re-render
+	default:
+		m.Logger.Info("bubbletree.Model.Update()", teaMsgAttrs(msg))
+		m.model, cmd = m.model.Update(msg)
+	}
 	return m, cmd
 }
 
@@ -73,7 +82,7 @@ func (m FileDispositionTreeModel) View() string {
 }
 
 // SelectedFile returns the currently selected file/folder
-func (m FileDispositionTreeModel) SelectedFile() *File {
+func (m FileDispositionTreeModel) SelectedFile() *bubbletree.File {
 	node := m.model.FocusedNode()
 	if node == nil {
 		return nil
@@ -81,8 +90,8 @@ func (m FileDispositionTreeModel) SelectedFile() *File {
 	return node.Data()
 }
 
-// SelectedNode returns the currently selected node
-func (m FileDispositionTreeModel) SelectedNode() *FileDispositionNode {
+// FocusedNode returns the currently selected node
+func (m FileDispositionTreeModel) FocusedNode() *bubbletree.FileNode {
 	return m.model.FocusedNode()
 }
 
@@ -100,103 +109,4 @@ func (m FileDispositionTreeModel) MaxVisibleWidth() int {
 // LayoutWidth returns the width this component needs for layout purposes.
 func (m FileDispositionTreeModel) LayoutWidth() int {
 	return m.MaxVisibleWidth()
-}
-
-// buildFileDispositionTreeHierarchy creates a hierarchical tree from flat file list
-// Returns the top-level nodes directly (no wrapper root) to save indentation
-func buildFileDispositionTreeHierarchy(files []File) []*FileDispositionNode {
-	// Create temporary root for building, but we'll return its children
-	root := bubbletree.NewNode(".", ".", File{
-		Path:        dt.RelFilepath("."),
-		Disposition: CommitDisposition,
-		Content:     "",
-	})
-
-	// Sort files by path first - this allows efficient tree building
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Path < files[j].Path
-	})
-
-	// Build tree structure using path-based node map for O(1) lookups
-	nodeMap := make(map[string]*FileDispositionNode)
-	nodeMap["."] = root
-
-	for _, file := range files {
-		pathStr := string(file.Path)
-		segments := strings.Split(pathStr, "/")
-
-		currentPath := ""
-
-		// Create folder nodes for each segment (except last, which is the file)
-		for i := 0; i < len(segments)-1; i++ {
-			segment := segments[i]
-			if currentPath == "" {
-				currentPath = segment
-			} else {
-				currentPath = currentPath + "/" + segment
-			}
-
-			// Check if this folder node already exists
-			if _, exists := nodeMap[currentPath]; !exists {
-				// Create new folder node (id=fullPath, name=basename)
-				folderNode := bubbletree.NewNode(
-					currentPath,                // id
-					filepath.Base(currentPath), // name (basename for display)
-					File{
-						Path:        dt.RelFilepath(currentPath),
-						Disposition: CommitDisposition,
-						Content:     "",
-					},
-				)
-
-				// Find parent node
-				parentPath := filepath.Dir(currentPath)
-				if parentPath == "" {
-					parentPath = "."
-				}
-				parentNode := nodeMap[parentPath]
-
-				// Add to parent
-				parentNode.AddChild(folderNode)
-
-				// Add to map
-				nodeMap[currentPath] = folderNode
-			}
-		}
-
-		// Add file node (id=fullPath, name=basename)
-		fileNode := bubbletree.NewNode(
-			pathStr,                // id
-			filepath.Base(pathStr), // name (basename for display)
-			file,
-		)
-
-		// Find parent node for this file
-		parentPath := filepath.Dir(pathStr)
-		if parentPath == "" {
-			parentPath = "."
-		}
-		parentNode := nodeMap[parentPath]
-
-		// Add file to parent folder
-		parentNode.AddChild(fileNode)
-	}
-
-	// Collapse all folders (first level should be visible but collapsed)
-	for _, child := range root.Children() {
-		collapseAllFileDispositionNodes(child)
-	}
-
-	// Return children directly (skip the temporary root to save indentation)
-	return root.Children()
-}
-
-// collapseAllBubbletree recursively collapses all nodes in the tree
-func collapseAllFileDispositionNodes(node *FileDispositionNode) {
-	if node.HasChildren() {
-		node.SetExpanded(false)
-		for _, child := range node.Children() {
-			collapseAllFileDispositionNodes(child)
-		}
-	}
 }

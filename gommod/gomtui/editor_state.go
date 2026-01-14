@@ -2,33 +2,37 @@ package gomtui
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
+	"log/slog"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/mikeschinkel/go-cliutil"
 	"github.com/mikeschinkel/go-dt"
+	"github.com/mikeschinkel/go-dt/dtx"
+	"github.com/mikeschinkel/gomion/gommod/bubbletree"
 	"github.com/mikeschinkel/gomion/gommod/gitutils"
 	"github.com/mikeschinkel/gomion/gommod/gomcfg"
 	"github.com/mikeschinkel/gomion/gommod/gompkg"
+	"go.dalton.dog/bubbleup"
 )
+
+type FileCache map[dt.RelFilepath]*bubbletree.File
 
 // EditorState is the main bubbletea model for the GRU staging editor
 type EditorState struct {
+	Logger *slog.Logger
+
 	// Repository state
-	CachedRepo    *gitutils.CachedWorktree
-	UserRepo      *gitutils.Repo
-	ModuleDir     dt.DirPath
-	ModuleRelPath dt.RelDirPath // Path relative to repo root for filtering
+	UserRepo   *gitutils.Repo
+	ModuleDir  dt.DirPath
+	modulePath dt.RelDirPath
+	commitPlan *gompkg.CommitPlan
+
+	context context.Context // This is not idiomatic for Go, but necessary for a BubbleTea app
 
 	// File Selection View state
-	FolderTree      FileDispositionTreeModel // Hierarchical tree view of files
-	FileContent     FileContentModel         // File content display (for file selection)
-	FilesTable      FilesTableModel          // Files table display (for directory selection)
-	IsDirectoryView bool                     // true = showing directory table, false = showing file content
-	ModuleScoped    bool                     // true = module-scoped, false = full-repo
+	layout FileDispositionModel
 
 	// Takes View state
 	Takes      *gomcfg.PlanTakes
@@ -39,64 +43,243 @@ type EditorState struct {
 	ChangeSets []*ChangeSet
 
 	// Files View state (hunk assignment)
-	Files []File
+	fileSource     *FileSource
+	GitStatusCache gitutils.StatusMap // Cache of git status
 
-	// File content cache: path → File (Content and YOffset populated)
-	FileCache map[dt.RelFilepath]*File
+	dirMetaLoaded map[dt.RelDirPath]struct{} // Track when a directory has had its file meta loaded
 
-	// Git status cache: path → GitFileStatus
-	GitStatusCache map[dt.RelFilepath]gitutils.GitFileStatus
+	// Commit plan persistence (auto-save)
+	saveSeq      int           // Auto-save sequence number (incremented on each disposition change)
+	saveDebounce time.Duration // Debounce period (default 3 seconds)
+
+	// Alert system for notifications
+	Alert bubbleup.AlertModel // Alert overlay for save notifications
 
 	// UI state
-	ViewMode       ViewMode
-	FocusPane      Pane
-	Width          int
-	Height         int
-	Writer         cliutil.Writer
-	Err            error
-	ViewportsReady bool // Track if viewports have been initialized
+	ViewMode ViewMode
+	Width    int
+	Height   int
+}
+
+type EditorStateArgs struct {
+	UserRepo *gitutils.Repo
+	Logger   *slog.Logger
+	Writer   cliutil.Writer
+}
+
+func NewEditorState(moduleDir dt.DirPath, args EditorStateArgs) EditorState {
+	// Initialize auto-save debounce (3 seconds)
+	return EditorState{
+		Logger:        args.Logger,
+		ModuleDir:     moduleDir,
+		UserRepo:      args.UserRepo,
+		ViewMode:      FileDispositionsView, // Start in File Selection View
+		dirMetaLoaded: make(map[dt.RelDirPath]struct{}),
+		Alert: bubbleup.NewAlertModel(50, false, 3*time.Second).
+			WithMinWidth(10).
+			WithUnicodePrefix().
+			WithPosition(bubbleup.TopRightPosition).
+			WithAllowEscToClose(),
+	}
 }
 
 // Ensure EditorState implements tea.Model interface
 var _ tea.Model = (*EditorState)(nil)
 
-// Init implements tea.Model - kicks off file loading
-func (es EditorState) Init() tea.Cmd {
-	// Return a Cmd that loads files asynchronously
-	return func() tea.Msg {
-		ctx := context.Background()
-		files, err := es.loadSelectedFiles(ctx)
-		return filesLoadedMsg{files: files, err: err}
+func (es EditorState) Context() context.Context {
+	if es.context == nil {
+		es.context = context.Background()
 	}
+	return es.context
+}
+
+// Init implements tea.Model - kicks off file loading and commit plan loading
+func (es EditorState) Init() (cmd tea.Cmd) {
+	es.Logger.Info("Initializing editor state")
+	return tea.Batch(
+		bootstrapCmd(es.Logger),
+		es.Alert.Init(),
+	)
 }
 
 // Update implements tea.Model - dispatches to view-specific update handlers
-func (es EditorState) Update(msg tea.Msg) (m tea.Model, c tea.Cmd) {
-	var ctx context.Context
+//
+//goland:noinspection GoAssignmentToReceiver
+func (es EditorState) Update(msg tea.Msg) (_ tea.Model, cmd tea.Cmd) {
+	// Delegate all messages to Alert first (for ticks and ESC)
+	var alertCmd tea.Cmd
+	es, alertCmd = es.alertCmd(msg)
 
-	// Create context for this update
-	ctx = context.Background()
+	es.Logger.Info("EditorState.Update()", teaMsgAttrs(msg))
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+
+		// Global keys (always work)
+		switch msg.String() {
+		case "q", "ctrl+c":
+			cmd = tea.Quit
+		case "ctrl+s":
+			// Manual save (Ctrl+S or Cmd+S)
+			es.saveSeq++
+			cmd = requestSaveCommitPlanCmd(es, es.saveSeq, true)
+
+		case "ctrl+r":
+			// Refresh caches (Ctrl+R)
+			cmd = es.Init()
+		}
+
+	case onErrorMsg:
+		cmd = es.Alert.NewAlertCmd(bubbleup.ErrorKey,
+			fmt.Sprintf("ERROR: %s, %v", msg.msg, msg.err),
+		)
+
+	case tea.WindowSizeMsg:
+		// Update EditorState dimensions
+		es.Width = msg.Width
+		es.Height = msg.Height
+		cmd = screenDimensionsCmd(es.Width, es.Height)
+
+	case bootstrapMsg:
+		es, cmd = es.ensureModulePath()
+		es.layout.Logger = msg.logger
+		if cmd == nil {
+			cmd = tea.Batch(
+				requestChangedFilesCmd(),
+				requestGitStatusCmd(),
+				requestCommitPlanCmd(),
+			)
+		}
+
+	case loadChangedFilesMsg:
+		cmd = loadChangedFilesCmd(es.Context(), es.UserRepo, es.modulePath)
+
+	case changedFilesLoadedMsg:
+		// Files have been loaded, we can now create the layout, load git status, and
+		// load commit plan if one already exists.
+		es.fileSource = msg.fileSource
+		cmd = requestLayoutCmd()
+
+	case loadGitStatusMsg:
+		cmd = loadGitStatusCmd(es.UserRepo)
+
+	case loadCommitPlanMsg:
+		cmd = loadCommitPlanCmd(es.UserRepo.Root)
+
+	case scheduleSaveCommitPlanMsg:
+		es.saveSeq++
+		cmd = requestSaveCommitPlanCmd(es, es.saveSeq, false)
+
+	case commitPlanLoadedMsg:
+		// Commit plan loaded successfully - update model state
+		es.commitPlan = msg.plan
+		// Now create the layout
+		cmd = requestCommitPlanSetCmd(msg.plan)
+
+	case saveCommitPlanMsg:
+		// Save the commit plan
+		switch {
+		case msg.sequence != es.saveSeq:
+			// Debounce timer fired - ignore stale messages
+		default:
+			err := es.commitPlan.Save(es.UserRepo.Root)
+			if err != nil {
+				return es, onErrorCmd(
+					fmt.Sprintf("Saving commit plan to %s", msg.modRelPath),
+					err,
+				)
+			}
+			if msg.showAlert {
+				cmd = es.Alert.NewAlertCmd(bubbleup.InfoKey, "Commit plan saved")
+			}
+		}
+
+	case createLayoutMsg:
+		switch {
+		case !es.layout.HasDimensions():
+			// No dimensions yet; deley, then try again
+			cmd = requestLayoutCmd()
+		default:
+			// Will be called after both WindowSizeMsg and changedFilesLoadedMsg
+			cliutil.Stderrf("Must load filesource first.")
+			//os.Exit(1)
+			es.layout = es.CreateLayout()
+			cmd = tea.Batch(
+				es.layout.Init(), // Initialize layout (triggers initial directory load)
+				resizeLayoutCmd(),
+			)
+		}
+
+	case directoryMetaLoadedMsg:
+
+		// Enrich files with git status
+		for _, file := range msg.childFiles {
+			es.GitStatusCache.EnsureFileStatus(file.Path)
+			es.setGitStatus(file)
+		}
+
+		// Create directory table
+		es.dirMetaLoaded[msg.relDirPath] = struct{}{}
+
+		cmd = requestReloadTableCmd(msg.relDirPath, msg.childFiles)
+
+	case gitStatusLoadedMsg:
+		// Store in cache
+		es.GitStatusCache = msg.statusMap
+
+	case loadDirectoryViewMsg:
+		// Defensive check - GitStatusCache should already be loaded from ensureModulePathMsg
+		// This should never happen, but if it does, it's an internal error (not user error)
+		if es.GitStatusCache == nil {
+			cmd = onInternalErrorCmd(
+				"GitStatusCache not initialized when requesting directory view",
+				fmt.Errorf("directory: %s", msg.relDirPath),
+			)
+			goto end
+		}
+
+		// Double-check if already loaded (second line of defense, in case of race)
+		if _, loaded := es.dirMetaLoaded[msg.relDirPath]; loaded {
+			// Already loaded, skip
+			goto end
+		}
+
+		// Trigger directory metadata load (I/O happens in command)
+		cmd = loadDirectoryMetaCmd(es.UserRepo.Root, msg.relDirPath, msg.childFiles)
+
+	default:
+		// Just here to stop the linter from complaining
+	}
+
+end:
+
+	cmds := []tea.Cmd{cmd}
 
 	// Dispatch based on current view mode
 	switch es.ViewMode {
-	case FileSelectionView:
-		m, c = es.updateFileSelectionView(ctx, msg)
+	case FileDispositionsView:
+		var layoutMsg tea.Msg
+		// Delegate to FileDispositionModel for all messages
+		layoutMsg, cmd = es.layout.Update(msg)
+		cmds = appendCmd(cmds, cmd)
+		es.layout = layoutMsg.(FileDispositionModel)
 	case TakesView:
 		// TODO: Implement takes view update
-		c = nil
+		cmd = nil
 	case FilesView:
 		// TODO: Implement files view update
-		c = nil
+		cmd = nil
 	}
+	cmds = appendCmd(cmds, alertCmd)
 
-	return m, c
+	return es, tea.Batch(cmds...)
 }
 
 // View implements tea.Model - dispatches to view-specific renderers
 func (es EditorState) View() string {
 	// Dispatch based on current view mode
 	switch es.ViewMode {
-	case FileSelectionView:
+	case FileDispositionsView:
 		return es.renderFileSelectionView()
 	case TakesView:
 		// TODO: Implement takes view rendering
@@ -109,585 +292,82 @@ func (es EditorState) View() string {
 	}
 }
 
-// initFileSelectionView initializes the file selection view state
-// Returns the initialized state (following immutable model pattern)
-// Note: Child models are not initialized here - they're initialized on first WindowSizeMsg
-func (es EditorState) initFileSelectionView(_ context.Context) (EditorState, error) {
-	es.ModuleScoped = true
-	es.ViewportsReady = false // Will be set true after first WindowSizeMsg
-	es.FocusPane = LeftPane
-	es.FileCache = make(map[dt.RelFilepath]*File)
-	return es, nil
+func (es EditorState) CreateLayout() FileDispositionModel {
+	return NewFileDispositionModel(FileDispositionModelArgs{
+		Logger:     es.Logger,
+		FileSource: es.fileSource,
+		UserRepo:   es.UserRepo,
+		ModulePath: es.modulePath,
+		CommitPlan: es.commitPlan,
+		Width:      es.Width,
+		Height:     es.Height,
+		RepoScoped: es.layout.RepoScoped,
+	})
 }
 
-// updateFileSelectionView handles updates for file selection view
+// updateFileDispositions handles updates for file selection view
 // Returns updated model and command (following BubbleTea's immutable Elm architecture)
 //
 //goland:noinspection GoAssignmentToReceiver
-func (es EditorState) updateFileSelectionView(ctx context.Context, msg tea.Msg) (_ EditorState, cmd tea.Cmd) {
-	var cmds []tea.Cmd
-	var err error
-
-	switch msg := msg.(type) {
-	case filesLoadedMsg:
-		// Handle file loading result
-		if msg.err != nil {
-			es.Err = msg.err
-			return es, nil
-		}
-
-		if len(msg.files) == 0 {
-			es.Err = NewErr(ErrNoChangedFiles)
-			es.ViewportsReady = true
-			return es, nil
-		}
-
-		es, err = es.loadFiles(ctx, msg.files)
-		if err != nil {
-			es.Err = err
-		}
-		return es, nil
-
-	case tea.WindowSizeMsg:
-		es.Width = msg.Width
-		es.Height = msg.Height
-
-		// Only resize if components exist (after files loaded)
-		if es.ViewportsReady {
-			layout := es.Layout()
-			es.FolderTree = es.FolderTree.SetSize(layout.LeftPaneWidth(), layout.PaneInnerHeight())
-			es.FileContent = es.FileContent.SetSize(layout.RightPaneInnerWidth(), layout.PaneInnerHeight())
-			if es.IsDirectoryView {
-				es.FilesTable = es.FilesTable.SetSize(layout.RightPaneInnerWidth(), layout.PaneHeight())
-			}
-		}
-
-		return es, nil
-
-	case tea.KeyMsg:
-		ms := msg.String()
-
-		// Global keys (always work)
-		switch ms {
-		case "q", "ctrl+c":
-			return es, tea.Quit
-		}
-
-		// Check if tree is empty (no files to commit)
-		selectedFile := es.FolderTree.SelectedFile()
-		isEmpty := selectedFile == nil || selectedFile.IsEmpty()
-
-		// View-specific keys (disabled when tree is empty)
-		if !isEmpty {
-			fd := FileDisposition(ms[0])
-			if IsFileDisposition(fd) {
-				// Disposition changes
-				return es.setDisposition(fd), nil
-			}
-
-			switch ms {
-			case "tab":
-				// Save scroll position before switching
-				selectedFile := es.FolderTree.SelectedFile()
-				if selectedFile != nil && es.FocusPane == RightPane {
-					es = es.withUpdatedFileCache(selectedFile.Path, es.FileContent.YOffset())
-				}
-
-				// Rotate right: Left → Right → Left
-				if es.FocusPane == LeftPane {
-					es.FocusPane = RightPane
-				} else {
-					es.FocusPane = LeftPane
-				}
-				return es, nil
-
-			case "shift+tab":
-				// Save scroll position before switching
-				selectedFile := es.FolderTree.SelectedFile()
-				if selectedFile != nil && es.FocusPane == RightPane {
-					es = es.withUpdatedFileCache(selectedFile.Path, es.FileContent.YOffset())
-				}
-
-				// Rotate left: Right → Left → Right
-				if es.FocusPane == RightPane {
-					es.FocusPane = LeftPane
-				} else {
-					es.FocusPane = RightPane
-				}
-				return es, nil
-			}
-		}
-
-		// Module toggle works both when empty and not empty
-		switch ms {
-		case "m": // Toggle module-scoped / full-repo
-			es.ModuleScoped = !es.ModuleScoped
-
-			// Clear caches (file paths change with module scope)
-			es.FileCache = make(map[dt.RelFilepath]*File)
-			es.GitStatusCache = nil // Clear git status cache
-
-			// Reset focus to tree
-			es.FocusPane = LeftPane
-
-			var err error
-			files, err := es.loadSelectedFiles(ctx)
-			if err != nil {
-				es.Err = err
-				return es, nil
-			}
-			// Recreate tree with new file list
-			layout := es.Layout()
-			es.FolderTree = NewFileDispositionTreeModel(files, layout.LeftPaneWidth(), layout.PaneInnerHeight())
-			return es, nil
-		}
-	}
-
-	// Delegate based on focused pane
-	switch es.FocusPane {
-	case LeftPane:
-		// Tree has focus - handle navigation
-		es.FolderTree, cmd = es.FolderTree.Update(msg)
-		cmds = append(cmds, cmd)
-
-		// Update file content or directory table when tree selection changes
-		selectedFile := es.FolderTree.SelectedFile()
-		if selectedFile != nil {
-			selectedNode := es.FolderTree.SelectedNode()
-			if selectedNode != nil && !selectedNode.HasChildren() {
-				// File selected - show file content
-				es.IsDirectoryView = false
-
-				// Load with cache (loadFileContent() now handles caching)
-				actualPath := es.getActualPath(selectedFile.Path)
-				content, yOffset, err := es.loadFileContent(actualPath)
-				if err != nil {
-					content = fmt.Sprintf("Error loading file:\n%v", err)
-					yOffset = 0
-				}
-				es.FileContent = es.FileContent.SetContent(content, yOffset)
-			} else {
-				var dir Directory
-				var layout FileDispositionLayout
-
-				// Directory selected - show directory table
-				es.IsDirectoryView = true
-
-				// Get child files from tree
-				childFiles := getChildFiles(selectedNode)
-
-				// Get or load git status
-				es.GitStatusCache, err = es.gitStatusMap(ctx)
-				if err != nil {
-					es.Err = err
-					goto end
-				}
-
-				// Batch load metadata for child files
-				_ = batchLoadMetadata(childFiles, es.UserRepo.Root)
-
-				// Enrich with git status
-				for _, file := range childFiles {
-					enrichWithGitStatus(file, es.GitStatusCache)
-				}
-
-				// Create directory object
-				dir = Directory{
-					Path:  dt.RelDirPath(selectedFile.Path),
-					Files: childFiles,
-				}
-
-				// Create/update table
-				layout = es.Layout()
-				es.FilesTable = NewFilesTableModel(dir, layout.RightPaneInnerWidth(), layout.PaneHeight())
-			end:
-				return es, cmd
-			}
-		}
-
-	case RightPane:
-		// Right pane has focus - delegate to either file content or directory table
-		if es.IsDirectoryView {
-			// Directory table has focus - handle navigation and disposition changes
-			es.FilesTable, cmd = es.FilesTable.Update(msg)
-			cmds = append(cmds, cmd)
-		} else {
-			// File content has focus - handle scrolling
-			es.FileContent, cmd = es.FileContent.Update(msg)
-			cmds = append(cmds, cmd)
-
-			// Update cache with current scroll position
-			selectedFile := es.FolderTree.SelectedFile()
-			if selectedFile != nil {
-				es = es.withUpdatedFileCache(selectedFile.Path, es.FileContent.YOffset())
-			}
-		}
-
-	default:
-		// Stop linting from complaining
-	}
-
-	return es, tea.Batch(cmds...)
-}
-
-// setDisposition applies disposition to the selected node
-func (es EditorState) setDisposition(disp FileDisposition) EditorState {
-	selectedNode := es.FolderTree.SelectedNode()
-	if selectedNode == nil {
-		return es
-	}
-
-	// Apply disposition to node (and recursively to children if folder)
-	applyDispositionToNode(selectedNode, disp)
-
-	return es
-}
-
-// applyDispositionToNode recursively applies disposition to a node and its children
-func applyDispositionToNode(node *FileDispositionNode, disp FileDisposition) {
-	// Update this node
-	node.Data().Disposition = disp
-	// If folder, recursively update all children
-	if node.HasChildren() {
-		for _, child := range node.Children() {
-			applyDispositionToNode(child, disp)
-		}
-	}
+func (es EditorState) alertCmd(msg tea.Msg) (_ EditorState, cmd tea.Cmd) {
+	alertModel, alertCmd := es.Alert.Update(msg)
+	es.Alert = alertModel.(bubbleup.AlertModel)
+	return es, alertCmd
 }
 
 // renderFileSelectionView renders the file selection view
 func (es EditorState) renderFileSelectionView() string {
-	if !es.ViewportsReady {
+	// Check if layout is initialized before delegating
+	if !es.layout.Ready() {
 		return "Initializing..."
 	}
 
-	// Check for errors
-	if es.Err != nil {
-		if errors.Is(es.Err, ErrNoChangedFiles) {
-			return "No changed files to display.\n\nPress q to quit."
-		}
-		return fmt.Sprintf("Error: %v\n\nPress q to quit.", es.Err)
-	}
+	// Delegate to FileDispositionModel for rendering
+	view := es.layout.View()
 
-	var sb strings.Builder
-
-	// Header
-	scope := fmt.Sprintf("Module=%s", renderRGBColor(es.ModuleDir.ToTilde(dt.OrFullPath), GreenColor))
-	if !es.ModuleScoped {
-		scope = fmt.Sprintf("Repo=%s", es.UserRepo.Root)
-	}
-
-	header := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("6")).
-		Render("Files to Commit: " + scope)
-
-	// Create layout from current state
-	layout := es.Layout()
-
-	// Build menu
-	menu := fmt.Sprintf("↑/↓:Navigate | ←/→:Expand/Collapse | %s:Commit | %s:Omit | %s:.gitignore | %s:.git/exclude | m:Module/Repo | Enter:Continue | q:Quit",
-		CommitDisposition.Key(),
-		OmitDisposition.Key(),
-		GitIgnoreDisposition.Key(),
-		GitExcludeDisposition.Key(),
-	)
-	footer := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(SilverColor)).
-		Render(menu)
-
-	// Resize components using layout
-	es.FolderTree = es.FolderTree.SetSize(layout.LeftPaneWidth(), layout.PaneInnerHeight())
-	es.FileContent = es.FileContent.SetSize(layout.RightPaneInnerWidth(), layout.PaneInnerHeight())
-
-	if es.IsDirectoryView {
-		es.FilesTable = es.FilesTable.SetSize(layout.RightPaneInnerWidth(), layout.PaneHeight())
-	}
-
-	// Calculate border colors based on focus
-	leftBorderColor := GrayColor
-	rightBorderColor := GrayColor
-
-	if es.FocusPane == LeftPane {
-		leftBorderColor = CyanColor
-	} else if es.FocusPane == RightPane {
-		rightBorderColor = CyanColor
-	}
-
-	// Create styled panes
-	basePaneStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		Height(layout.PaneInnerHeight())
-
-	leftPane := basePaneStyle.
-		PaddingLeft(1).
-		PaddingRight(1).
-		BorderForeground(lipgloss.Color(leftBorderColor)).
-		Render(es.FolderTree.View())
-
-	// Render right pane based on view type
-	var rightPane string
-	if es.IsDirectoryView {
-		// Table already has its own borders - render directly
-		es.FilesTable = es.FilesTable.SetBorderColor(rightBorderColor)
-		rightPane = es.FilesTable.View()
-	} else {
-		// File content needs a pane wrapper with borders
-		rightPane = basePaneStyle.
-			Width(layout.RightPaneWidth()).
-			PaddingLeft(1).
-			BorderForeground(lipgloss.Color(rightBorderColor)).
-			Render(es.FileContent.View())
-	}
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
-
-	sb.WriteString(header)
-	sb.WriteString("\n")
-	sb.WriteString(body)
-	sb.WriteString("\n")
-	sb.WriteString(footer)
-
-	return sb.String()
+	// Overlay alert on top of all content (MUST be last)
+	return es.Alert.Render(view)
 }
 
-// loadSelectedFiles loads changed files, optionally filtered to module scope
-func (es EditorState) loadSelectedFiles(ctx context.Context) (files []File, err error) {
-	var changedFiles []dt.RelFilepath
-	var filter func(dt.RelFilepath) bool
-
-	// Create filter if module-scoped
-	if es.ModuleScoped {
-		filter = gompkg.CreateModuleFileFilter(es.ModuleRelPath)
-	}
-
-	// Get changed files
-	if filter != nil {
-		changedFiles, err = es.UserRepo.GetChangedFilesFiltered(ctx, filter)
-	} else {
-		changedFiles, err = es.UserRepo.GetChangedFiles(ctx)
+// ensureModulePath ensures that modulePath will have a valid value
+func (es EditorState) ensureModulePath() (_ EditorState, cmd tea.Cmd) {
+	var err error
+	if es.ModuleDir != es.UserRepo.Root {
+		// Calculate relative path from repo root to module
+		es.modulePath, err = es.ModuleDir.Rel(es.UserRepo.Root)
 	}
 	if err != nil {
-		goto end
-	}
-
-	// Convert to File (default to Include)
-	files = make([]File, len(changedFiles))
-	for i, path := range changedFiles {
-		displayPath := path
-
-		// Strip module prefix when module-scoped for cleaner display
-		if es.ModuleScoped && es.ModuleRelPath != "" {
-			prefix := string(es.ModuleRelPath) + "/"
-			pathStr := string(path)
-			if strings.HasPrefix(pathStr, prefix) {
-				displayPath = dt.RelFilepath(strings.TrimPrefix(pathStr, prefix))
-			}
-		}
-
-		files[i] = File{
-			Path:        displayPath,
-			Disposition: CommitDisposition,
-			Content:     "", // Will be loaded on demand
-		}
-	}
-
-end:
-	return files, err
-}
-
-// getActualPath restores the full repo-relative path from display path
-// When module-scoped, display paths have module prefix stripped, so we restore it
-func (es EditorState) getActualPath(displayPath dt.RelFilepath) dt.RelFilepath {
-	if !es.ModuleScoped || es.ModuleRelPath == "" {
-		return displayPath
-	}
-
-	// Restore module prefix
-	return dt.RelFilepath(string(es.ModuleRelPath) + "/" + string(displayPath))
-}
-
-// loadFileContent loads file content, using cache if available
-func (es EditorState) loadFileContent(path dt.RelFilepath) (content string, yOffset int, err error) {
-	var filepath dt.Filepath
-	var bytes []byte
-	var actualPath dt.RelFilepath
-	var cached *File
-	var ok bool
-	var pathStr string
-	var parts []string
-
-	// Check cache first
-	cached, ok = es.FileCache[path]
-	if ok {
-		content = cached.Content
-		yOffset = cached.YOffset
-		goto end
-	}
-
-	// Handle renamed files (format: "oldpath -> newpath")
-	// For renamed files, use the new path
-	pathStr = string(path)
-	if strings.Contains(pathStr, " -> ") {
-		parts = strings.Split(pathStr, " -> ")
-		actualPath = dt.RelFilepath(strings.TrimSpace(parts[1]))
-	} else {
-		actualPath = path
-	}
-
-	// Construct full path
-	filepath = dt.FilepathJoin(es.UserRepo.Root, actualPath)
-
-	// Read file
-	bytes, err = filepath.ReadFile()
-	if err != nil {
-		err = NewErr(ErrGit, filepath.ErrKV(), err)
-		goto end
-	}
-
-	content = string(bytes)
-
-	// Cache it
-	es.FileCache[path] = &File{
-		Path:    path,
-		Content: content,
-		YOffset: 0,
-	}
-
-	yOffset = 0
-
-end:
-	return content, yOffset, err
-}
-
-// withUpdateFileCache updates the cached scroll position for a file
-func (es EditorState) withUpdatedFileCache(path dt.RelFilepath, yOffset int) EditorState {
-	var updated File
-	var newCache map[dt.RelFilepath]*File
-
-	cached, ok := es.FileCache[path]
-	if !ok {
-		goto end
-	}
-	// Create new File with updated YOffset
-	updated = *cached
-	updated.YOffset = yOffset
-
-	// Create new map with updated entry
-	newCache = make(map[dt.RelFilepath]*File, len(es.FileCache))
-	for k, v := range es.FileCache {
-		newCache[k] = v
-	}
-	newCache[path] = &updated
-
-	// Return new EditorState with new cache
-	es.FileCache = newCache
-end:
-	return es
-}
-
-// gitStatusMap returns the cached git status map, loading it if necessary.
-// Runs git status --porcelain and caches the result in EditorState.GitStatusCache.
-func (es EditorState) gitStatusMap(ctx context.Context) (m gitutils.StatusMap, err error) {
-	// Return cached if available
-	if es.GitStatusCache != nil {
-		m = es.GitStatusCache
-		goto end
-	}
-
-	// Load git status
-	m, err = es.UserRepo.StatusMap(ctx, &gitutils.StatusArgs{
-		HumanReadable: false,
-	})
-
-end:
-	return m, err
-}
-
-func (es EditorState) loadFiles(ctx context.Context, files []File) (_ EditorState, err error) {
-	var selectedNode *FileDispositionNode
-	var selectedFile *File
-	var childFiles []*File
-	var gitStatusMap map[dt.RelFilepath]gitutils.GitFileStatus
-	var dir Directory
-
-	// Create tree with loaded files
-	layout := es.Layout()
-	if len(files) == 0 {
-		es.FolderTree = NewEmptyFileDispositionTreeModel(
-			"No changed files available for commit in current module.\n\n"+
-				"Use 'm' to toggle between module and repository scope.",
-			layout.LeftPaneWidth(),
-			layout.PaneInnerHeight(),
+		msg := fmt.Sprintf("Directory mismatch: Module (%s) vs Repo (%s); %v",
+			es.ModuleDir,
+			es.UserRepo.Root,
+			err,
 		)
-		es.FileContent = NewFileContentModel(layout.RightPaneInnerWidth(), layout.PaneInnerHeight())
-		es.ViewportsReady = true
-		// Don't return error - this is a valid state
-		goto end
+		cmd = onInternalErrorCmd(msg, err)
 	}
+	return es, cmd
+}
 
-	es.FolderTree = NewFileDispositionTreeModel(files, layout.LeftPaneWidth(), layout.PaneInnerHeight())
-	es.FileContent = NewFileContentModel(layout.RightPaneInnerWidth(), layout.PaneInnerHeight())
+// setGitStatus enriches bubbletree.File with git status information
+func (es EditorState) setGitStatus(f *bubbletree.File) {
+	var status gitutils.FileStatus
+	var found bool
 
-	// Load initial file content or directory table
-	selectedFile = es.FolderTree.SelectedFile()
-	if selectedFile == nil {
-		goto end
+	if !f.HasData() {
+		f.SetData(NewFileData())
 	}
-	selectedNode = es.FolderTree.SelectedNode()
-
-	if !selectedNode.HasChildren() {
-		// File selected - load content
-		es.IsDirectoryView = false
-		actualPath := es.getActualPath(selectedFile.Path)
-		content, yOffset, err := es.loadFileContent(actualPath)
-		if err != nil {
-			content = fmt.Sprintf("Error loading file:\n%v", err)
-			yOffset = 0
-		}
-		es.FileContent = es.FileContent.SetContent(content, yOffset)
-		goto end
-	}
-
-	if selectedNode == nil {
-		goto end
-	}
-
-	// Directory selected - create table
-	es.IsDirectoryView = true
-	childFiles = getChildFiles(selectedNode)
-	gitStatusMap, err = es.gitStatusMap(ctx)
+	fileData, err := dtx.AssertType[*FileData](f.Data())
 	if err != nil {
+		panic(err.Error())
+	}
+
+	// Look up git status for this file
+	status, found = es.GitStatusCache[f.Path]
+	if !found {
+		fileData.FileStatus = gitutils.FileStatus{}
 		goto end
 	}
-
-	_ = batchLoadMetadata(childFiles, es.UserRepo.Root)
-	for _, file := range childFiles {
-		enrichWithGitStatus(file, gitStatusMap)
-	}
-	dir = Directory{
-		Path:  dt.RelDirPath(selectedFile.Path),
-		Files: childFiles,
-	}
-	es.FilesTable = NewFilesTableModel(dir, layout.RightPaneInnerWidth(), layout.PaneHeight())
-
+	fileData.FileStatus = status
+	f.SetData(fileData)
 end:
-	if err == nil {
-		es.ViewportsReady = true
-	}
-	return es, err
-}
-
-func (es EditorState) Layout() FileDispositionLayout {
-	treeWidth := 0
-	if es.ViewportsReady {
-		treeWidth = es.FolderTree.LayoutWidth()
-	}
-	return NewFileDispositionLayout(es.Width, es.Height, treeWidth)
-}
-
-// filesLoadedMsg is sent when files are loaded asynchronously
-type filesLoadedMsg struct {
-	files []File
-	err   error
+	return
 }

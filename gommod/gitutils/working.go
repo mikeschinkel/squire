@@ -2,7 +2,6 @@ package gitutils
 
 import (
 	"context"
-	"strings"
 
 	"github.com/mikeschinkel/go-dt"
 )
@@ -10,51 +9,13 @@ import (
 // FileFilter is a function that returns true if file should be included
 type FileFilter func(dt.RelFilepath) bool
 
-// GetChangedFiles returns all changed files in the working directory
-// This includes both staged and unstaged changes
-func (r *Repo) GetChangedFiles(ctx context.Context) (files []dt.RelFilepath, err error) {
-	var out string
-	var lines []string
-
-	// Use git status --porcelain to get all changed files
-	// Format: XY filename
-	// X = staged status, Y = unstaged status
-	out, err = r.Status(ctx, nil)
-	if err != nil {
-		goto end
-	}
-
-	lines = strings.Split(out, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-
-		// Split on first space only to separate status from filename
-		// Handles filenames with spaces correctly
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) < 2 {
-			continue
-		}
-
-		files = append(files, dt.RelFilepath(parts[1]))
-	}
-
-end:
-	return files, err
-}
-
 // GetChangedFilesFiltered returns changed files matching the filter function
 // This includes both staged and unstaged changes, filtered by the provided function
-func (r *Repo) GetChangedFilesFiltered(
-	ctx context.Context,
-	filter FileFilter,
-) (filtered []dt.RelFilepath, err error) {
+func (r *Repo) GetChangedFilesFiltered(ctx context.Context, filter FileFilter, args *StatusArgs) (filtered []dt.RelFilepath, err error) {
 	var allFiles []dt.RelFilepath
 
 	// Get all changed files
-	allFiles, err = r.GetChangedFiles(ctx)
+	allFiles, err = r.GetChangedFiles(ctx, args)
 	if err != nil {
 		goto end
 	}

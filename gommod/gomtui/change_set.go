@@ -23,7 +23,7 @@ type ChangeSet struct {
 	Name       string
 	Rationale  string
 	Files      []dt.RelFilepath
-	IndexFile  dt.Filepath // Path to GIT_INDEX_FILE
+	IndexFile  dt.Filepath // RelPath to GIT_INDEX_FILE
 	TakeNumber int         // Which take this belongs to (1-based)
 	Committed  bool
 }
@@ -64,7 +64,7 @@ func (cs ChangeSet) CreateIndex(projectRoot dt.DirPath) (_ ChangeSet, err error)
 
 	// Initialize empty index by copying from .git/index
 	// If .git/index doesn't exist, git will create a new one when GIT_INDEX_FILE is set
-	gitIndexPath = dt.FilepathJoin3(projectRoot, gitutils.RepoPath, "index")
+	gitIndexPath = dt.FilepathJoin3(projectRoot, gitutils.DotGitPath, "index")
 	exists, err = gitIndexPath.Exists()
 	if err != nil {
 		err = NewErr(ErrGit, dt.ErrFileSystem, err)
@@ -100,7 +100,7 @@ func (cs ChangeSet) LoadIndex(projectRoot dt.DirPath) (_ ChangeSet, err error) {
 		goto end
 	}
 	if !exists {
-		err = NewErr(ErrGitIndex, dt.ErrFileNotExists)
+		err = NewErr(ErrGitIndex, dt.ErrFileNotExist)
 		goto end
 	}
 

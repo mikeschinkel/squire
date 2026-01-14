@@ -2,38 +2,7 @@ package gompkg
 
 import (
 	"github.com/mikeschinkel/go-dt"
-	"github.com/mikeschinkel/gomion/gommod/gitutils"
 )
-
-// CreateModuleFileFilter returns a filter for files within module directory
-// The filter returns true if the file is within the specified module directory
-// moduleRelPath should be relative to the git repo root (e.g., "gommod" or ".")
-func CreateModuleFileFilter(moduleRelPath dt.RelDirPath) (ff gitutils.FileFilter) {
-	// Prepare module prefix with trailing separator
-	var modulePrefix dt.PathSegments
-
-	// If module is current directory, all files match
-	if moduleRelPath == "." || moduleRelPath == "" {
-		ff = func(file dt.RelFilepath) bool {
-			return true
-		}
-		goto end
-	}
-
-	// Ensure module path has trailing separator for prefix matching
-	modulePrefix = moduleRelPath
-	if !modulePrefix.HasSuffix("/") {
-		modulePrefix += "/"
-	}
-
-	ff = func(file dt.RelFilepath) bool {
-		// Check if file path starts with module directory
-		return file.HasPrefix(modulePrefix)
-	}
-end:
-	return ff
-
-}
 
 // AutoDetectModule finds go.mod and returns module directory
 // Searches from startDir upward until a go.mod file is found

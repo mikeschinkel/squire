@@ -151,7 +151,7 @@ func loadPlanFile(file string) (files []dt.Filepath, err error) {
 		goto end
 	}
 	if !exists {
-		err = NewErr(dt.ErrFileNotExists, "filepath", file)
+		err = NewErr(dt.ErrFileNotExist, "filepath", file)
 	}
 	content, err = fp.ReadFile()
 	if err != nil {

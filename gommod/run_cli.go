@@ -64,10 +64,11 @@ func RunCLI() {
 
 	appInfo = AppInfo()
 	wr, err = cfgstore.CreateWriterLogger(&cfgstore.WriterLoggerArgs{
-		Quiet:      quiet,
-		Verbosity:  options.Verbosity(),
-		ConfigSlug: appInfo.ConfigSlug(),
-		LogFile:    gomion.LogFile,
+		Quiet:       quiet,
+		Verbosity:   options.Verbosity(),
+		ConfigSlug:  appInfo.ConfigSlug(),
+		LogFile:     gomion.LogFile,
+		TruncateLog: true, // TODO Make this a command line switch and/or config option
 	})
 	if err != nil {
 		stdErrf("Failed to run: %v\n", err)

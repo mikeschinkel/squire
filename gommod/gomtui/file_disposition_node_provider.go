@@ -2,51 +2,47 @@ package gomtui
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mikeschinkel/go-dt"
 	"github.com/mikeschinkel/gomion/gommod/bubbletree"
+	"github.com/mikeschinkel/gomion/gommod/gompkg"
 )
 
 // FileDispositionNodeProvider implements bubbletree.NodeProvider for File nodes
 type FileDispositionNodeProvider struct {
-	bubbletree.NodeProvider[File]
+	bubbletree.NodeProvider[bubbletree.File]
+	dispositionFunc func(dt.RelFilepath) gompkg.FileDisposition
 }
 
 // NewFileDispositionNodeProvider creates a new file node provider with compact 2-space indentation
-func NewFileDispositionNodeProvider() *FileDispositionNodeProvider {
+func NewFileDispositionNodeProvider(dispositionFunc func(dt.RelFilepath) gompkg.FileDisposition) *FileDispositionNodeProvider {
+	controls := bubbletree.TriangleExpanderControls
+	//controls:= bubbletree.PlusExpanderControls
+	//controls:= bubbletree.NoExpanderControls
 	return &FileDispositionNodeProvider{
-		NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.TriangleExpanderControls),
-		//NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.PlusExpanderControls),
-		//NodeProvider: bubbletree.NewCompactNodeProvider[File](bubbletree.NoExpanderControls),
+		NodeProvider:    bubbletree.NewCompactNodeProvider[bubbletree.File](controls),
+		dispositionFunc: dispositionFunc,
 	}
 }
 
 // Text returns the formatted display name (filename)
 func (p *FileDispositionNodeProvider) Text(node *FileDispositionNode) string {
-	return filepath.Base(string(node.Data().Path))
+	return string(node.Data().Path.Base())
 }
 
 // Suffix returns the file disposition suffix
 func (p *FileDispositionNodeProvider) Suffix(node *FileDispositionNode) string {
-	d := node.Data().Disposition
-	return fmt.Sprintf("[%s]", renderRGBColor(d.Key(), d.RGBColor()))
+	path := node.Data().Path
+	d := p.dispositionFunc(path)
+	return fmt.Sprintf("[%s]", renderRGBColor(d.Key(), DispositionColor(d)))
 }
 
-//// Icon returns the expand/collapse indicator for folders, empty for files
-//func (p *FileDispositionNodeProvider) Icon(node *FileDispositionNode) string {
-//	if node.HasChildren() {
-//		if node.IsExpanded() {
-//			return "" // Expanded folder - no icon, tree structure shows it
-//		}
-//		return "+" // Collapsed folder - show plus to indicate can expand
-//	}
-//	return "" // Files don't need an icon - branch character is enough
-//}
-
 // Style returns the lipgloss style based on disposition and focus state
-func (p *FileDispositionNodeProvider) Style(node *FileDispositionNode, tree *bubbletree.Tree[File]) (style lipgloss.Style) {
-	style = styleWithRGBColor(node.Data().Disposition.RGBColor())
+func (p *FileDispositionNodeProvider) Style(node *bubbletree.FileNode, tree *bubbletree.Tree[bubbletree.File]) (style lipgloss.Style) {
+	path := node.Data().Path
+	d := p.dispositionFunc(path)
+	style = styleWithRGBColor(DispositionColor(d))
 	if tree.IsFocusedNode(node) {
 		// Use inverse video for better accessibility
 		return style.Reverse(true)
@@ -55,12 +51,3 @@ func (p *FileDispositionNodeProvider) Style(node *FileDispositionNode, tree *bub
 	// Use disposition color for non-focused items
 	return style
 }
-
-//// BuildPrefix builds the tree structure prefix with compact indentation
-//func (p *FileDispositionNodeProvider) BuildPrefix(node *FileDispositionNode, ancestorIsLastChild []bool, isLast bool) string {
-//	// DEBUG: Print what we're receiving
-//	// fmt.Printf("BuildPrefix for %s: ancestors=%v, isLast=%v, depth=%d\n",
-//	//	node.Name(), ancestorIsLastChild, isLast, node.Depth())
-//
-//	return p.NodeProvider.BuildPrefix(node, ancestorIsLastChild, isLast)
-//}

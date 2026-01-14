@@ -7,10 +7,10 @@ import (
 )
 
 const IgnoreFilename dt.Filename = ".gitignore"
-const RepoPath dt.PathSegment = ".git"
+const DotGitPath dt.PathSegment = ".git"
 const KeepFile dt.PathSegment = ".gitkeep"
 
-var InfoPath = dt.PathSegmentsJoin(RepoPath, "info")
+var InfoPath = dt.PathSegmentsJoin(DotGitPath, "info")
 var ExcludeFilepath = dt.RelFilepathJoin(InfoPath, "exclude")
 
 type IgnoreFile struct {
